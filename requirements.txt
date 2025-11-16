@@ -5,3 +5,4 @@ pyautogui
 pytesseract
 opencv-python
 pyperclip
+pyinstaller
