@@ -61,4 +61,4 @@ jobs:
           
       env:
         # Token này là BẮT BUỘC để cho phép Action tạo Release
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
