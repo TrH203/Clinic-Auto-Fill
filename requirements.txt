@@ -1,0 +1,7 @@
+numpy<2
+pandas
+pywinauto
+pyautogui
+pytesseract
+opencv-python
+pyperclip
