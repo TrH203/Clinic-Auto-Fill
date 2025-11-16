@@ -38,7 +38,7 @@ jobs:
     - name: Build with PyInstaller
       run: |
         # Nhớ đổi 'main.py' thành tên file chính của bạn
-        pyinstaller --onefile --noconsole --name Auto-Clinic main.py
+        pyinstaller --onefile --noconsole --name Auto-Clinic interface.py
 
     # Bước 5: Tạo Release chính thức trên GitHub
     - name: Create Release
