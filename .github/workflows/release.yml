@@ -1,64 +1,46 @@
-# Tên của quy trình
 name: Build và Release ứng dụng Python
 
-# 1. KÍCH HOẠT: Chạy khi nào?
-#    Chỉ chạy khi bạn tạo và đẩy (push) một TAG mới
-#    có dạng v1.0.0, v1.2.5, v...
 on:
   push:
     tags:
-      - 'v*.*.*' # Ví dụ: v1.0.1, v1.2.0
+      - 'v*.*.*'   # Tạo release khi push tag
     branches:
-      - main
+      - main       # Build khi push vào main
+      - staging    # Build khi push vào staging
 
-# 2. CÔNG VIỆC: Làm gì?
 jobs:
   build-release:
-    # 3. MÔI TRƯỜNG: Chạy trên máy Windows
     runs-on: windows-latest
 
     steps:
-    # Bước 1: Lấy code mới nhất về
     - name: Checkout code
       uses: actions/checkout@v3
 
-    # Bước 2: Cài đặt Python
     - name: Set up Python
-      uses: actions/setup-python@v4
+    ```
+    uses: actions/setup-python@v4
       with:
-        python-version: '3.10' # Đổi thành phiên bản Python của bạn
+        python-version: '3.10'
 
-    # Bước 3: Cài đặt thư viện (requests, pyinstaller...)
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    # Bước 4: Build file .exe bằng PyInstaller
     - name: Build with PyInstaller
       run: |
-        # Nhớ đổi 'main.py' thành tên file chính của bạn
         pyinstaller --onefile --noconsole --name Auto-Clinic interface.py
 
-    # Bước 5: Tạo Release chính thức trên GitHub
+    # Chỉ tạo release khi push TAG
     - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
-        # Tên Release sẽ tự động lấy theo tên TAG bạn đẩy lên
-        # (Ví dụ: "v1.0.2")
         tag_name: ${{ github.ref_name }}
-        
-        # Tiêu đề của Release
         name: Phiên bản ${{ github.ref_name }}
-        
-        # Mô tả (Bạn có thể sửa đổi sau)
         body: |
           Đây là bản phát hành tự động.
-          
-        # Đính kèm file .exe vừa build (trong thư mục 'dist')
         files: |
-          dist/Auto-Clinic.exe 
-          
+          dist/Auto-Clinic.exe
       env:
-        # Token này là BẮT BUỘC để cho phép Action tạo Release
         GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
