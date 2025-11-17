@@ -12,12 +12,19 @@ def main():
     new_executable = sys.argv[2]
 
     # Wait for the main application to exit
-    time.sleep(2)
+    retries = 10
+    for i in range(retries):
+        try:
+            # Remove the old executable
+            os.remove(current_executable)
+            break
+        except PermissionError:
+            if i < retries - 1:
+                time.sleep(1)
+            else:
+                raise
 
     try:
-        # Remove the old executable
-        os.remove(current_executable)
-
         # Rename the new executable
         os.rename(new_executable, current_executable)
 
