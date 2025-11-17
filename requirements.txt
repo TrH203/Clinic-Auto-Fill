@@ -6,3 +6,4 @@ pytesseract
 opencv-python
 pyperclip
 pyinstaller
+requests

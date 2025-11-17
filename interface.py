@@ -7,12 +7,17 @@ from handle_data import read_data
 from tool import Tool
 import time
 import os
+import sys
+import requests
 from config import PATIENT_ROW, TIEP
+
+CURRENT_VERSION = "1.0.0"
+GITHUB_REPO = "TrH203/Clinic-Auto-Fill"
 
 class AutomationGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Medical Data Automation Tool")
+        self.root.title(f"Medical Data Automation Tool - v{CURRENT_VERSION}")
         self.root.geometry("800x600")
         self.root.resizable(True, True)
         
@@ -27,12 +32,15 @@ class AutomationGUI:
         self.all_data = []
         self.current_index = 0
         
+        self.update_info = None
+
         # Queue for thread communication
         self.log_queue = queue.Queue()
         
         self.setup_ui()
         self.setup_hotkeys()
         self.check_queue()
+        self.check_for_updates()
         
     def setup_ui(self):
         # Main frame
@@ -165,6 +173,78 @@ class AutomationGUI:
         clear_log_btn = ttk.Button(log_frame, text="Clear Log", command=self.clear_log)
         clear_log_btn.grid(row=1, column=0, sticky=tk.E, pady=(5, 0))
         
+        # Status bar
+        status_frame = ttk.Frame(self.root, padding="5")
+        status_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
+
+        self.version_label = ttk.Label(status_frame, text=f"Version: {CURRENT_VERSION}")
+        self.version_label.grid(row=0, column=0, sticky=tk.W)
+
+        self.update_btn = ttk.Button(status_frame, text="Check for Updates",
+                                    command=self.prompt_update, state='normal')
+        self.update_btn.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
+
+    def check_for_updates(self):
+        """Checks for updates in a separate thread."""
+        threading.Thread(target=self._check_for_updates_thread, daemon=True).start()
+
+    def _check_for_updates_thread(self):
+        """The actual update check logic."""
+        try:
+            api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+            response = requests.get(api_url)
+            response.raise_for_status()
+
+            latest_release = response.json()
+            latest_version = latest_release["tag_name"]
+
+            if latest_version > CURRENT_VERSION:
+                self.update_info = latest_release
+                self.root.after(0, self._enable_update_button)
+        except Exception as e:
+            self.log_message(f"✗ Failed to check for updates: {e}", "ERROR")
+
+    def _enable_update_button(self):
+        """Enables the update button and changes its style."""
+        style = ttk.Style()
+        style.configure("Update.TButton", foreground="red", font=('Arial', 9, 'bold'))
+        self.update_btn.config(text="Update Available!", style="Update.TButton")
+
+    def prompt_update(self):
+        """Prompts the user to update the application."""
+        if not self.update_info:
+            messagebox.showinfo("No Updates", "You are using the latest version of the application.")
+            return
+
+        latest_version = self.update_info["tag_name"]
+        update_message = f"A new version ({latest_version}) is available. Do you want to download and install it?"
+
+        if messagebox.askyesno("Update Available", update_message):
+            self.download_and_update()
+
+    def download_and_update(self):
+        """Downloads the latest release and launches the updater."""
+        try:
+            asset = self.update_info["assets"][0]
+            download_url = asset["browser_download_url"]
+            filename = asset["name"]
+
+            response = requests.get(download_url, stream=True)
+            response.raise_for_status()
+
+            with open(filename, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+
+            self.log_message(f"✓ Downloaded {filename}")
+
+            # Launch the updater script
+            os.execv(sys.executable, ["python", "updater.py", os.path.basename(sys.argv[0]), filename])
+
+        except Exception as e:
+            self.log_message(f"✗ Failed to download or apply update: {e}", "ERROR")
+            messagebox.showerror("Update Error", f"Failed to download or apply update:\n{e}")
+
     def setup_hotkeys(self):
         """Setup global hotkey for emergency stop"""
         # Bind F12 key to emergency stop
