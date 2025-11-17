@@ -1,12 +1,11 @@
 import time
 from pywinauto.keyboard import send_keys
-from handle_data import convert_info_from_text, vietnamese_to_telex
+from handle_data import convert_info_from_text
 from config import DICH_VU_THU_THUAT, BSCD, BSCD_NGUOI_DAU_TIEN, NGAY_CD, NGAY_BDTH, NGAY_KQ, \
     NGAY_KET_THUC, NGAY_BAT_DAU, SUA, ID_BOX, CHO_THUC_HIEN, DA_THUC_HIEN, RELOAD, CCHN_NGUOI_DAU_TIEN, CCHN, LUU
 import pyautogui
 import pytesseract
 import cv2
-import os
 from pywinauto.uia_element_info import UIAElementInfo
 import numpy as np
 import pyperclip
