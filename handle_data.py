@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-import random
 from config import bs_mapper, thu_thuat_ability_mapper, thu_thuat_dur_mapper, map_ys_bs
 from pywinauto.uia_element_info import UIAElementInfo
 import pyautogui
@@ -182,6 +181,12 @@ def read_data(source='data.csv') -> list:
 
     return list_data
 
+def convert_info_from_text(text:str):
+    for i in thu_thuat_dur_mapper.keys():
+        if i in text.strip().lower():
+            return i, thu_thuat_dur_mapper[i], thu_thuat_ability_mapper[i]
+    
+    return None, None, None
 
 # -----------------------------
 # MAIN
