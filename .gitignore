@@ -1,5 +1,17 @@
+# Ignore the GitHub token file
+github_token.txt
+
+# Ignore Python cache files
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore virtual environment directories
+venv/
+env/
+
+# Ignore PyInstaller build artifacts
 build/
 dist/
-interface.spec
-venv
+*.spec
