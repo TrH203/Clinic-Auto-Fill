@@ -239,7 +239,8 @@ class AutomationGUI:
             self.log_message(f"✓ Downloaded {filename}")
 
             # Launch the updater script
-            os.execv(sys.executable, ["python", "updater.py", os.path.basename(sys.argv[0]), filename])
+            subprocess.Popen([sys.executable, "updater.py", os.path.basename(sys.argv[0]), filename])
+            self.root.destroy()
 
         except Exception as e:
             self.log_message(f"✗ Failed to download or apply update: {e}", "ERROR")
