@@ -2,7 +2,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import queue
-from pywinauto import Application, Desktop
+from pywinauto.application import Application
+from pywinauto.desktop import Desktop
 from handle_data import read_data
 from tool import Tool
 import time
@@ -11,7 +12,11 @@ import sys
 import requests
 from config import PATIENT_ROW, TIEP
 
-CURRENT_VERSION = "1.0.0"
+def get_current_version():
+    with open("VERSION", "r") as f:
+        return f.read().strip()
+
+CURRENT_VERSION = get_current_version()
 GITHUB_REPO = "TrH203/Clinic-Auto-Fill"
 
 class AutomationGUI:
@@ -239,7 +244,8 @@ class AutomationGUI:
             self.log_message(f"✓ Downloaded {filename}")
 
             # Launch the updater script
-            os.execv(sys.executable, ["python", "updater.py", os.path.basename(sys.argv[0]), filename])
+            subprocess.Popen([sys.executable, "updater.py", os.path.basename(sys.argv[0]), filename])
+            self.root.destroy()
 
         except Exception as e:
             self.log_message(f"✗ Failed to download or apply update: {e}", "ERROR")
