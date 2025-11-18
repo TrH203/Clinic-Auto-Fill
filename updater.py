@@ -2,14 +2,16 @@ import os
 import sys
 import time
 import subprocess
+from database import update_version_in_db
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: python updater.py <current_executable> <new_executable>")
+    if len(sys.argv) != 4:
+        print("Usage: python updater.py <current_executable> <new_executable> <new_version>")
         sys.exit(1)
 
     current_executable = sys.argv[1]
     new_executable = sys.argv[2]
+    new_version = sys.argv[3]
 
     # Wait for the main application to exit
     retries = 10
@@ -27,6 +29,9 @@ def main():
     try:
         # Rename the new executable
         os.rename(new_executable, current_executable)
+
+        # Update the version in the database
+        update_version_in_db(new_version)
 
         # Relaunch the application
         subprocess.Popen([current_executable])
