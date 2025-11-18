@@ -6,7 +6,6 @@ on:
       - 'v*.*.*'   # Tạo release khi push tag
     branches:
       - main       # Build khi push vào main
-      - staging    # Build khi push vào staging
 
 jobs:
   build-release:
