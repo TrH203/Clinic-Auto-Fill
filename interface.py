@@ -2,8 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import queue
-from pywinauto.application import Application
-from pywinauto.desktop import Desktop
+from pywinauto import Application
 from handle_data import read_data
 from tool import Tool
 import time
