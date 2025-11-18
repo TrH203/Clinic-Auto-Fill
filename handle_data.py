@@ -183,7 +183,7 @@ def read_data(source='data.csv') -> list:
 
 def convert_info_from_text(text:str):
     for i in thu_thuat_dur_mapper.keys():
-        if i in text.strip().lower():
+        if i.lower() in text.strip().lower():
             return i, thu_thuat_dur_mapper[i], thu_thuat_ability_mapper[i]
     
     return None, None, None
