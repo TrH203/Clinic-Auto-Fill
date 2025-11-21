@@ -10,12 +10,9 @@ import os
 import sys
 import requests
 from config import PATIENT_ROW, TIEP
+from database import get_current_version_from_db, initialize_database
 
-def get_current_version():
-    with open("VERSION", "r") as f:
-        return f.read().strip()
-
-CURRENT_VERSION = get_current_version()
+CURRENT_VERSION = get_current_version_from_db()
 GITHUB_REPO = "TrH203/Clinic-Auto-Fill"
 
 class AutomationGUI:
@@ -243,7 +240,8 @@ class AutomationGUI:
             self.log_message(f"✓ Downloaded {filename}")
 
             # Launch the updater script
-            subprocess.Popen([sys.executable, "updater.py", os.path.basename(sys.argv[0]), filename])
+            latest_version = self.update_info["tag_name"]
+            subprocess.Popen([sys.executable, "updater.py", os.path.basename(sys.argv[0]), filename, latest_version])
             self.root.destroy()
 
         except Exception as e:
@@ -490,6 +488,7 @@ class AutomationGUI:
         self.log_text.config(state='disabled')
 
 def main():
+    initialize_database()
     root = tk.Tk()
     app = AutomationGUI(root)
     
