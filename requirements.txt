@@ -7,3 +7,4 @@ opencv-python
 pyperclip
 pyinstaller
 requests
+comtypes
