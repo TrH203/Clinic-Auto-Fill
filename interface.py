@@ -229,19 +229,20 @@ class AutomationGUI:
             asset = self.update_info["assets"][0]
             download_url = asset["browser_download_url"]
             filename = asset["name"]
+            temp_filename = filename + ".new"
 
             response = requests.get(download_url, stream=True)
             response.raise_for_status()
 
-            with open(filename, "wb") as f:
+            with open(temp_filename, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
 
-            self.log_message(f"✓ Downloaded {filename}")
+            self.log_message(f"✓ Downloaded {temp_filename}")
 
             # Launch the updater script
             latest_version = self.update_info["tag_name"]
-            subprocess.Popen([sys.executable, "updater.py", os.path.basename(sys.argv[0]), filename, latest_version])
+            subprocess.Popen([sys.executable, "updater.py", os.path.basename(sys.argv[0]), temp_filename, latest_version])
             self.root.destroy()
 
         except Exception as e:
