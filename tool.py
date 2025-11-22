@@ -15,13 +15,28 @@ class Tool:
         self.app = app
         self.dlg = dlg
         self.box_valid = None
+        self.first_click_regions = {}
 
+    def validate_click(self, x, y):
+        element_info = UIAElementInfo.from_point(x, y)
+        rect = element_info.rectangle
+        region = (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+
+        if (x, y) not in self.first_click_regions:
+            self.first_click_regions[(x, y)] = region
+        else:
+            if self.first_click_regions[(x, y)] != region:
+                raise Exception(f"Break feature triggered: Region changed for click at ({x}, {y}). Expected {self.first_click_regions[(x, y)]}, got {region}")
 
     def _double_click_position(self, coords, wait=0.1):
+        x, y = coords
+        self.validate_click(x, y)
         self.dlg.double_click_input(coords=coords)
         time.sleep(wait)
 
     def _click_position(self, coords, wait=0.1):
+        x, y = coords
+        self.validate_click(x, y)
         self.dlg.click_input(coords=coords)
         time.sleep(wait)
     
