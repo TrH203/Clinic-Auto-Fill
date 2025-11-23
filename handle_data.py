@@ -125,9 +125,21 @@ def read_data(source='data.csv') -> list:
                 isFirst = False
 
             ngay_raw = row[i][-1]
-            final_data["ngay"] = parse_date_safe(ngay_raw).strftime("%d-%m-%Y")
+            try:
+                final_data["ngay"] = parse_date_safe(ngay_raw).strftime("%d-%m-%Y")
+            except ValueError as e:
+                raise ValueError(f"Lỗi ID {final_data['id']}: Ngày '{ngay_raw}' không hợp lệ. {e}")
 
-            thu_thuats = [x.strip() for x in row[0][1].split("-")]
+            thu_thuats_raw = row[0][1]
+            if not isinstance(thu_thuats_raw, str):
+                 raise ValueError(f"Lỗi ID {final_data['id']}: Dòng dịch vụ không đúng định dạng.")
+
+            thu_thuats = [x.strip() for x in thu_thuats_raw.split("-")]
+
+            # Validate thu thuat names
+            for tt in thu_thuats:
+                 if tt not in thu_thuat_dur_mapper:
+                     raise ValueError(f"Lỗi ID {final_data['id']}: Tên thủ thuật '{tt}' sai hoặc thiếu dấu gạch ngang (-).")
 
             final_data["thu_thuats"] = []
 
@@ -161,7 +173,16 @@ def read_data(source='data.csv') -> list:
                 d = parse_date_safe(ngay_CĐ)
                 thu = d.weekday()
 
-                nguoi = [x.strip() for x in row[i][1].split("-")]
+                nguoi_raw = row[i][1]
+                if not isinstance(nguoi_raw, str):
+                    raise ValueError(f"Lỗi ID {final_data['id']}: Dòng người thực hiện không đúng định dạng.")
+
+                nguoi = [x.strip() for x in nguoi_raw.split("-")]
+
+                # Validate staff names
+                for n in nguoi:
+                    if n.lower() not in map_ys_bs:
+                         raise ValueError(f"Lỗi ID {final_data['id']}: Tên nhân viên '{n}' sai hoặc thiếu dấu gạch ngang (-).")
 
                 if thu_thuat_ability_mapper[tt] == "bs":
                     idx_ng = 1 if len(nguoi) > 1 else 0
@@ -170,9 +191,14 @@ def read_data(source='data.csv') -> list:
                     flag = not flag
 
                 obj["BS CD"] = bs_mapper[thu]
-                obj["Ngay CD"] = format_datetime_data(ngay_CĐ, gio_CD.strftime("%H:%M")).replace(" ", "{SPACE}")
-                obj["Ngay BD TH"] = format_datetime_data(ngay_CĐ, gio_dau.strftime("%H:%M")).replace(" ", "{SPACE}")
-                obj["Ngay KQ"] = format_datetime_data(ngay_CĐ, gio_cuoi.strftime("%H:%M")).replace(" ", "{SPACE}")
+
+                try:
+                    obj["Ngay CD"] = format_datetime_data(ngay_CĐ, gio_CD.strftime("%H:%M")).replace(" ", "{SPACE}")
+                    obj["Ngay BD TH"] = format_datetime_data(ngay_CĐ, gio_dau.strftime("%H:%M")).replace(" ", "{SPACE}")
+                    obj["Ngay KQ"] = format_datetime_data(ngay_CĐ, gio_cuoi.strftime("%H:%M")).replace(" ", "{SPACE}")
+                except ValueError as e:
+                     raise ValueError(f"Lỗi ID {final_data['id']}: {e}")
+
                 obj["Nguoi Thuc Hien"] = map_ys_bs[nguoi[idx_ng].lower()]
 
                 final_data["thu_thuats"].append(obj)
