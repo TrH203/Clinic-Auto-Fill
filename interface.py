@@ -8,6 +8,7 @@ from tool import Tool
 import time
 import os
 import sys
+import subprocess
 import requests
 from config import PATIENT_ROW, TIEP
 from database import get_current_version_from_db, initialize_database
