@@ -7,10 +7,12 @@ import sys
 
 # Mocking Windows-specific modules
 sys.modules['pywinauto'] = MagicMock()
+sys.modules['pywinauto.keyboard'] = MagicMock()
 sys.modules['pywinauto.uia_element_info'] = MagicMock()
 sys.modules['pyautogui'] = MagicMock()
 sys.modules['pytesseract'] = MagicMock()
 sys.modules['cv2'] = MagicMock()
+sys.modules['pyperclip'] = MagicMock()
 
 from handle_data import (
     parse_date_safe,
