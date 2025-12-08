@@ -214,6 +214,144 @@ def convert_info_from_text(text:str):
     
     return None, None, None
 
+
+# -----------------------------
+# MANUAL DATA ENTRY SUPPORT
+# -----------------------------
+
+def create_data_from_manual_input(patient_id, procedures_list, staff_list, appointment_date, appointment_time):
+    """
+    Create automation data from manual input.
+    
+    Args:
+        patient_id: Patient ID string
+        procedures_list: List of procedure names (e.g., ["điện", "thuỷ"])
+        staff_list: List of staff names (e.g., ["Hiền", "Hoà"])
+        appointment_date: Date string in format "dd-mm-yyyy"
+        appointment_time: Time string in format "HH:MM"
+    
+    Returns:
+        Dictionary in the same format as read_data() output
+    """
+    from datetime import datetime, timedelta
+    
+    # Validate procedures
+    for proc in procedures_list:
+        if proc not in thu_thuat_dur_mapper:
+            raise ValueError(f"Unknown procedure: {proc}")
+    
+    # Validate staff
+    for staff in staff_list:
+        if staff.lower() not in map_ys_bs:
+            raise ValueError(f"Unknown staff member: {staff}")
+    
+    # Parse date and time
+    try:
+        ngay_dt = datetime.strptime(appointment_date, "%d-%m-%Y")
+        gio_start = datetime.strptime(appointment_time, "%H:%M")
+    except ValueError as e:
+        raise ValueError(f"Invalid date/time format: {e}")
+    
+    thu_thuats = []
+    flag = False
+    
+    # Calculate times for first procedure
+    gio_dau = datetime.combine(ngay_dt.date(), gio_start.time())
+    lui = 5
+    gio_CD = gio_dau - timedelta(minutes=lui)
+    
+    # Fix times that are too early
+    sang_start = datetime.strptime("07:00", "%H:%M").time()
+    sang_early = datetime.strptime("06:00", "%H:%M").time()
+    chieu_start = datetime.strptime("13:30", "%H:%M").time()
+    chieu_early = datetime.strptime("12:00", "%H:%M").time()
+    
+    if sang_early < gio_CD.time() < sang_start:
+        gio_CD = datetime.combine(gio_CD.date(), sang_start)
+    elif chieu_early < gio_CD.time() < chieu_start:
+        gio_CD = datetime.combine(gio_CD.date(), chieu_start)
+    
+    thu = ngay_dt.weekday()
+    
+    for idx, tt in enumerate(procedures_list):
+        obj = {"Ten": tt}
+        
+        if idx > 0:
+            gio_dau = gio_cuoi + timedelta(minutes=2)
+        
+        gio_cuoi = gio_dau + timedelta(minutes=thu_thuat_dur_mapper[tt])
+        
+        # Determine staff
+        if thu_thuat_ability_mapper[tt] == "bs":
+            idx_ng = 1 if len(staff_list) > 1 else 0
+        else:
+            idx_ng = 2 if flag else 0
+            flag = not flag
+        
+        obj["BS CD"] = bs_mapper[thu]
+        obj["Ngay CD"] = format_datetime_data(appointment_date, gio_CD.strftime("%H:%M")).replace(" ", "{SPACE}")
+        obj["Ngay BD TH"] = format_datetime_data(appointment_date, gio_dau.strftime("%H:%M")).replace(" ", "{SPACE}")
+        obj["Ngay KQ"] = format_datetime_data(appointment_date, gio_cuoi.strftime("%H:%M")).replace(" ", "{SPACE}")
+        obj["Nguoi Thuc Hien"] = map_ys_bs[staff_list[idx_ng].lower()]
+        
+        thu_thuats.append(obj)
+    
+    return {
+        "id": patient_id,
+        "isFirst": True,
+        "ngay": appointment_date,
+        "thu_thuats": thu_thuats
+    }
+
+
+def save_manual_data_to_json(data_list, filename="manual_data.json"):
+    """Save manual data entries to JSON file."""
+    import json
+    try:
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data_list, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        raise Exception(f"Failed to save manual data: {e}")
+
+
+def load_manual_data_from_json(filename="manual_data.json"):
+    """Load manual data entries from JSON file."""
+    import json
+    import os
+    
+    if not os.path.exists(filename):
+        return []
+    
+    try:
+        with open(filename, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        raise Exception(f"Failed to load manual data: {e}")
+
+
+def merge_csv_and_manual_data(csv_data, manual_data):
+    """
+    Merge CSV and manual data into a single list.
+    
+    Args:
+        csv_data: List from read_data()
+        manual_data: List from manual entry
+    
+    Returns:
+        Combined list sorted by date
+    """
+    combined = csv_data + manual_data
+    
+    # Sort by date (optional, but helpful)
+    try:
+        combined.sort(key=lambda x: datetime.strptime(x["ngay"], "%d-%m-%Y"))
+    except:
+        pass  # If sorting fails, just return unsorted
+    
+    return combined
+
+
 # -----------------------------
 # MAIN
 # -----------------------------
