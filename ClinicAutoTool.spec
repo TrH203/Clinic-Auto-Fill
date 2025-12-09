@@ -23,8 +23,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('updater.py', '.'),  # Bundle updater.py with the .exe
-        ('updater.bat', '.'),  # Bundle Windows batch updater
+        # No updater files needed - manual download only
     ],
     hiddenimports=hidden_imports,
     hookspath=[],

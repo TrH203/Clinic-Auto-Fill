@@ -13,7 +13,7 @@ from database import save_manual_entry_to_db
 
 
 class ManualEntryDialog:
-    """Dialog for manual data entry."""
+    """Dialog for manual data entry with scrollable UI."""
     
     def __init__(self, parent, on_save_callback=None):
         """
@@ -30,8 +30,8 @@ class ManualEntryDialog:
         # Create dialog window
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Manual Patient Data Entry")
-        self.dialog.geometry("600x700")
-        self.dialog.resizable(False, False)
+        self.dialog.geometry("650x550")  # Smaller height for scrolling
+        self.dialog.resizable(False, True)
         
         # Make dialog modal
         self.dialog.transient(parent)
@@ -39,9 +39,6 @@ class ManualEntryDialog:
         
         # Center dialog on parent
         self.center_dialog()
-        
-        self.procedure_entries = []
-        self.staff_entries = []
         
         self.setup_ui()
         
@@ -63,9 +60,30 @@ class ManualEntryDialog:
         self.dialog.geometry(f"+{x}+{y}")
         
     def setup_ui(self):
-        """Setup the user interface."""
-        main_frame = ttk.Frame(self.dialog, padding="20")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        """Setup the scrollable user interface."""
+        # Create canvas and scrollbar
+        canvas = tk.Canvas(self.dialog)
+        scrollbar = ttk.Scrollbar(self.dialog, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas, padding="20")
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Mouse wheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        main_frame = scrollable_frame
         
         # Title
         title_label = ttk.Label(main_frame, text="Enter Patient Appointment Data", 
@@ -89,7 +107,6 @@ class ManualEntryDialog:
             self.date_entry = DateEntry(main_frame, width=37, background='darkblue',
                                        foreground='white', borderwidth=2, date_pattern='dd-mm-yyyy')
         except:
-            # Fallback if tkcalendar not available
             self.date_entry = ttk.Entry(main_frame, width=40)
             self.date_entry.insert(0, datetime.now().strftime("%d-%m-%Y"))
         self.date_entry.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
@@ -118,8 +135,8 @@ class ManualEntryDialog:
             row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=15)
         row += 1
         
-        # Procedures Section
-        procedures_frame = ttk.LabelFrame(main_frame, text="Procedures (Thủ thuật)", 
+        # Procedures Section - EXACTLY 4 dropdowns
+        procedures_frame = ttk.LabelFrame(main_frame, text="Procedures (Chọn đúng 4 thủ thuật theo thứ tự)", 
                                          padding="10")
         procedures_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
         row += 1
@@ -127,41 +144,56 @@ class ManualEntryDialog:
         # Get available procedures
         self.available_procedures = sorted(list(thu_thuat_dur_mapper.keys()))
         
-        # Create checkboxes for procedures
-        self.procedure_vars = {}
-        proc_row = 0
-        proc_col = 0
-        for proc in self.available_procedures:
-            var = tk.BooleanVar()
-            self.procedure_vars[proc] = var
-            cb = ttk.Checkbutton(procedures_frame, text=f"{proc} ({thu_thuat_dur_mapper[proc]} min)", 
-                               variable=var)
-            cb.grid(row=proc_row, column=proc_col, sticky=tk.W, padx=10, pady=2)
-            proc_col += 1
-            if proc_col > 1:
-                proc_col = 0
-                proc_row += 1
+        # Create 4 procedure dropdowns
+        self.procedure_vars = []
+        for i in range(4):
+            ttk.Label(procedures_frame, text=f"Thủ thuật {i+1}:").grid(
+                row=i, column=0, sticky=tk.W, pady=5, padx=(0, 10))
+            var = tk.StringVar()
+            dropdown = ttk.Combobox(procedures_frame, textvariable=var, 
+                                   values=self.available_procedures, width=35, state='readonly')
+            dropdown.grid(row=i, column=1, sticky=(tk.W, tk.E), pady=5)
+            self.procedure_vars.append(var)
         
-        # Staff Section
+        # Staff Section - Autocomplete comboboxes
         staff_frame = ttk.LabelFrame(main_frame, text="Staff Members (Người thực hiện)", 
                                     padding="10")
         staff_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
         row += 1
         
-        ttk.Label(staff_frame, text="Select up to 3 staff members in order:").grid(
+        ttk.Label(staff_frame, text="💡 Gõ tên để tìm nhanh, chọn 1-3 người theo thứ tự:").grid(
             row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
         
-        # Get available staff
+        # Get available staff (capitalize for display)
         self.available_staff = sorted(list(map_ys_bs.keys()))
+        self.staff_display = [s.title() for s in self.available_staff]
         
-        # Create 3 staff dropdowns
+        # Create 3 staff comboboxes with autocomplete
         self.staff_vars = []
         for i in range(3):
-            ttk.Label(staff_frame, text=f"Staff {i+1}:").grid(row=i+1, column=0, sticky=tk.W, pady=5)
+            ttk.Label(staff_frame, text=f"Người {i+1}:").grid(row=i+1, column=0, sticky=tk.W, pady=5)
             var = tk.StringVar()
-            dropdown = ttk.Combobox(staff_frame, textvariable=var, 
-                                   values=[""] + self.available_staff, width=35, state='readonly')
-            dropdown.grid(row=i+1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+            
+            # Create combobox that allows typing
+            combo = ttk.Combobox(staff_frame, textvariable=var, 
+                                values=self.staff_display, width=35)
+            combo.grid(row=i+1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+            
+            # Add autocomplete behavior
+            def make_autocomplete(combo_widget, values_list):
+                def on_keyrelease(event):
+                    value = event.widget.get()
+                    if value == '':
+                        combo_widget['values'] = values_list
+                    else:
+                        data = []
+                        for item in values_list:
+                            if value.lower() in item.lower():
+                                data.append(item)
+                        combo_widget['values'] = data
+                return on_keyrelease
+            
+            combo.bind('<KeyRelease>', make_autocomplete(combo, self.staff_display))
             self.staff_vars.append(var)
         
         # Notes Section
@@ -176,7 +208,8 @@ class ManualEntryDialog:
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=row, column=0, columnspan=2, pady=20)
         
-        save_btn = ttk.Button(button_frame, text="Save & Add to Queue", command=self.save_entry)
+        save_btn = ttk.Button(button_frame, text="💾 Save & Add to Queue", 
+                             command=self.save_entry, style="Accent.TButton")
         save_btn.grid(row=0, column=0, padx=5)
         
         cancel_btn = ttk.Button(button_frame, text="Cancel", command=self.cancel)
@@ -184,7 +217,7 @@ class ManualEntryDialog:
         
         # Info Label
         info_label = ttk.Label(main_frame, 
-                              text="💡 Tip: Select procedures and staff members, then click Save to add to automation queue.",
+                              text="💡 Chọn đủ 4 thủ thuật và ít nhất 1 người thực hiện",
                               font=('Arial', 9), foreground="gray")
         info_label.grid(row=row+1, column=0, columnspan=2, pady=(0, 10))
         
@@ -216,17 +249,24 @@ class ManualEntryDialog:
             messagebox.showerror("Validation Error", "Invalid time format.")
             return False
         
-        # Check procedures
-        selected_procedures = [proc for proc, var in self.procedure_vars.items() if var.get()]
-        if not selected_procedures:
-            messagebox.showerror("Validation Error", "Please select at least one procedure.")
+        # Check procedures - MUST BE EXACTLY 4
+        selected_procedures = [var.get() for var in self.procedure_vars if var.get()]
+        if len(selected_procedures) != 4:
+            messagebox.showerror("Validation Error", 
+                               f"Please select EXACTLY 4 procedures.\nCurrently selected: {len(selected_procedures)}")
             return False
         
         # Check staff
-        selected_staff = [var.get() for var in self.staff_vars if var.get()]
+        selected_staff = [var.get().lower() for var in self.staff_vars if var.get()]
         if not selected_staff:
             messagebox.showerror("Validation Error", "Please select at least one staff member.")
             return False
+        
+        # Validate staff names exist in config
+        for staff in selected_staff:
+            if staff not in self.available_staff:
+                messagebox.showerror("Validation Error", f"Unknown staff member: {staff}")
+                return False
         
         return True
     
@@ -245,11 +285,11 @@ class ManualEntryDialog:
             # Get time
             time_str = f"{self.hour_var.get()}:{self.minute_var.get()}"
             
-            # Get selected procedures
-            procedures = [proc for proc, var in self.procedure_vars.items() if var.get()]
+            # Get selected procedures - EXACTLY 4
+            procedures = [var.get() for var in self.procedure_vars]
             
-            # Get selected staff
-            staff = [var.get() for var in self.staff_vars if var.get()]
+            # Get selected staff (normalize to lowercase)
+            staff = [var.get().lower() for var in self.staff_vars if var.get()]
             
             # Create automation data
             data = create_data_from_manual_input(
@@ -277,7 +317,7 @@ class ManualEntryDialog:
             if self.on_save_callback:
                 self.on_save_callback(data)
             
-            messagebox.showinfo("Success", "Patient data added successfully!")
+            messagebox.showinfo("Success", f"✓ Added patient {self.patient_id_var.get()} with 4 procedures!")
             self.dialog.destroy()
             
         except Exception as e:
@@ -292,22 +332,3 @@ class ManualEntryDialog:
         """Show the dialog and wait for it to close."""
         self.dialog.wait_window()
         return self.result
-
-
-if __name__ == "__main__":
-    # Test the dialog
-    root = tk.Tk()
-    root.withdraw()
-    
-    def test_callback(data):
-        print("Data saved:", data)
-    
-    dialog = ManualEntryDialog(root, on_save_callback=test_callback)
-    result = dialog.show()
-    
-    if result:
-        print("Result:", result)
-    else:
-        print("Cancelled")
-    
-    root.destroy()

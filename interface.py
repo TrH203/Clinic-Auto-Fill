@@ -8,15 +8,14 @@ from tool import Tool
 import time
 import os
 import sys
-import subprocess
-import requests
+import webbrowser
 from config import PATIENT_ROW, TIEP
 from database import get_current_version_from_db, initialize_database, load_manual_entries_from_db
-from version_utils import is_newer_version, format_changelog
 from manual_entry import ManualEntryDialog
 
 CURRENT_VERSION = get_current_version_from_db()
 GITHUB_REPO = "TrH203/Clinic-Auto-Fill"
+GITHUB_RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
 
 class AutomationGUI:
     def __init__(self, root):
@@ -37,8 +36,6 @@ class AutomationGUI:
         self.manual_data = []
         self.csv_data = []
         self.current_index = 0
-        
-        self.update_info = None
 
         # Queue for thread communication
         self.log_queue = queue.Queue()
@@ -46,16 +43,35 @@ class AutomationGUI:
         self.setup_ui()
         self.setup_hotkeys()
         self.check_queue()
-        self.check_for_updates()
+        
         
     def setup_ui(self):
-        # Main frame
-        main_frame = ttk.Frame(self.root, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Create canvas and scrollbar for scrollable window
+        canvas = tk.Canvas(self.root)
+        scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas, padding="10")
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Mouse wheel scrolling
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        
+        # Use scrollable_frame as main container
+        main_frame = scrollable_frame
         
         # Configure grid weights
-        self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
         main_frame.rowconfigure(4, weight=1)
         
@@ -78,7 +94,10 @@ class AutomationGUI:
         browse_btn.grid(row=0, column=2, padx=(0, 5))
         
         manual_btn = ttk.Button(file_frame, text="Manual Entry", command=self.open_manual_entry)
-        manual_btn.grid(row=0, column=3)
+        manual_btn.grid(row=0, column=3, padx=(0, 5))
+        
+        export_btn = ttk.Button(file_frame, text="📄 Export CSV", command=self.export_to_csv)
+        export_btn.grid(row=0, column=4)
         
         # Connection section
         conn_frame = ttk.LabelFrame(main_frame, text="Application Connection", padding="10")
@@ -189,138 +208,19 @@ class AutomationGUI:
         self.version_label = ttk.Label(status_frame, text=f"Version: {CURRENT_VERSION}")
         self.version_label.grid(row=0, column=0, sticky=tk.W)
 
-        self.update_btn = ttk.Button(status_frame, text="Check for Updates",
-                                    command=self.prompt_update, state='normal')
-        self.update_btn.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
-
-    def check_for_updates(self):
-        """Checks for updates in a separate thread."""
-        threading.Thread(target=self._check_for_updates_thread, daemon=True).start()
-
-    def _check_for_updates_thread(self):
-        """The actual update check logic."""
+        # GitHub releases download button
+        self.download_btn = ttk.Button(status_frame, text="📥 Download Latest Version",
+                                       command=self.open_github_releases, 
+                                       style="Accent.TButton")
+        self.download_btn.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
+    
+    def open_github_releases(self):
+        """Opens GitHub releases page in browser."""
         try:
-            api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-            response = requests.get(api_url, timeout=10)
-            response.raise_for_status()
-
-            latest_release = response.json()
-            latest_version = latest_release["tag_name"]
-
-            # Use semantic version comparison
-            if is_newer_version(CURRENT_VERSION, latest_version):
-                self.update_info = latest_release
-                self.root.after(0, self._enable_update_button)
+            webbrowser.open(GITHUB_RELEASES_URL)
+            self.log_message(f"🔗 Opening GitHub releases: {GITHUB_RELEASES_URL}")
         except Exception as e:
-            self.log_message(f"✗ Failed to check for updates: {e}", "ERROR")
-
-    def _enable_update_button(self):
-        """Enables the update button and changes its style."""
-        style = ttk.Style()
-        style.configure("Update.TButton", foreground="red", font=('Arial', 9, 'bold'))
-        self.update_btn.config(text="Update Available!", style="Update.TButton")
-
-    def prompt_update(self):
-        """Prompts the user to update the application."""
-        if not self.update_info:
-            messagebox.showinfo("No Updates", "You are using the latest version of the application.")
-            return
-
-        latest_version = self.update_info["tag_name"]
-        release_notes = self.update_info.get("body", "No release notes available.")
-        
-        # Format the message with changelog
-        changelog = format_changelog(release_notes, max_length=300)
-        update_message = (
-            f"A new version is available!\n\n"
-            f"Current Version: {CURRENT_VERSION}\n"
-            f"Latest Version: {latest_version}\n\n"
-            f"Release Notes:\n{changelog}\n\n"
-            f"Do you want to download and install it?"
-        )
-
-        if messagebox.askyesno("Update Available", update_message):
-            self.download_and_update()
-
-    def download_and_update(self):
-        """Downloads the latest release and launches the updater."""
-        try:
-            # Find the .exe file in assets
-            exe_asset = None
-            for asset in self.update_info["assets"]:
-                if asset["name"].endswith(".exe"):
-                    exe_asset = asset
-                    break
-            
-            if not exe_asset:
-                raise Exception("No .exe file found in release assets")
-            
-            download_url = exe_asset["browser_download_url"]
-            filename = exe_asset["name"]
-            
-            # Download to Windows TEMP directory to avoid permission issues
-            import tempfile
-            temp_dir = tempfile.gettempdir()
-            temp_filename = os.path.join(temp_dir, filename)
-            
-            self.log_message(f"⬇️ Downloading {filename} to temp folder...")
-            self.log_message(f"  Location: {temp_dir}")
-
-            response = requests.get(download_url, stream=True, timeout=60)
-            response.raise_for_status()
-            
-            total_size = int(response.headers.get('content-length', 0))
-            downloaded = 0
-
-            with open(temp_filename, "wb") as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if total_size > 0 and downloaded % (1024 * 1024) == 0:  # Log every MB
-                        percent = (downloaded / total_size) * 100
-                        self.log_message(f"  Downloaded {downloaded // (1024*1024)} MB / {total_size // (1024*1024)} MB ({percent:.1f}%)")
-
-            self.log_message(f"✓ Download complete: {temp_filename}")
-
-            # Launch the updater script
-            latest_version = self.update_info["tag_name"]
-            
-            # Check if running as frozen executable (PyInstaller)
-            if getattr(sys, 'frozen', False):
-                # Running as .exe - use batch script updater
-                current_exe = sys.executable
-                exe_dir = os.path.dirname(current_exe)
-                
-                # Extract bundled updater.bat
-                bundled_updater_bat = os.path.join(sys._MEIPASS, "updater.bat")
-                local_updater_bat = os.path.join(exe_dir, "updater.bat")
-                
-                # Copy updater.bat to exe directory
-                import shutil
-                shutil.copy2(bundled_updater_bat, local_updater_bat)
-                
-                self.log_message(f"🚀 Launching updater...")
-                self.log_message(f"  Current: {current_exe}")
-                self.log_message(f"  New version: {temp_filename}")
-                
-                # Launch batch script (file is already in temp, no rename needed)
-                subprocess.Popen(
-                    [local_updater_bat, os.path.basename(current_exe), temp_filename, latest_version],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE,
-                    cwd=exe_dir  # Run from app directory
-                )
-            else:
-                # Running as script - use Python updater
-                subprocess.Popen([sys.executable, "updater.py", 
-                                os.path.basename(sys.argv[0]), temp_filename, latest_version])
-            
-            self.log_message("✓ Updater launched. Application will close and restart.")
-            time.sleep(1)  # Give user time to see the message
-            self.root.destroy()
-
-        except Exception as e:
-            self.log_message(f"✗ Failed to download or apply update: {e}", "ERROR")
-            messagebox.showerror("Update Error", f"Failed to download or apply update:\n{e}")
+            messagebox.showerror("Error", f"Failed to open browser:\n{e}")
 
     def setup_hotkeys(self):
         """Setup global hotkey for emergency stop"""
@@ -375,6 +275,50 @@ class AutomationGUI:
         self.progress_var.set(f"0/{total}")
         self.log_message(f"📊 Total records: {total} (CSV: {len(self.csv_data)}, Manual: {len(self.manual_data)})")
             
+    
+    def export_to_csv(self):
+        """Export combined data to CSV file."""
+        if not self.all_data:
+            messagebox.showwarning("No Data", "No data to export. Please load CSV or add manual entries first.")
+            return
+        
+        filename = filedialog.asksaveasfilename(
+            title="Export Data to CSV",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")]
+        )
+        
+        if not filename:
+            return
+        
+        try:
+            import csv
+            import json
+            
+            with open(filename, 'w', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                
+                # Write header
+                writer.writerow(['Patient ID', 'Date', 'Procedures', 'Is First', 'Details (JSON)'])
+                
+                # Write data
+                for record in self.all_data:
+                    procedures = ", ".join([tt['Ten'] for tt in record.get('thu_thuats', [])])
+                    writer.writerow([
+                        record.get('id', ''),
+                        record.get('ngay', ''),
+                        procedures,
+                        'Yes' if record.get('isFirst', False) else 'No',
+                        json.dumps(record, ensure_ascii=False)
+                    ])
+            
+            self.log_message(f"✓ Exported {len(self.all_data)} records to {filename}")
+            messagebox.showinfo("Export Successful", f"Exported {len(self.all_data)} records to:\n{filename}")
+        
+        except Exception as e:
+            self.log_message(f"✗ Failed to export CSV: {e}", "ERROR")
+            messagebox.showerror("Export Error", f"Failed to export CSV:\n{e}")
+    
     def connect_to_app(self):
         try:
             self.app = Application(backend="uia").connect(title_re="User: Trần Thị Thu Hiền")
