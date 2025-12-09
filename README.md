@@ -64,9 +64,20 @@ pip install -r requirements.txt
 
 ### Building
 
+**Using spec file (Recommended):**
 ```bash
-pyinstaller --onefile --windowed --name="ClinicAutoTool" interface.py
+pyinstaller ClinicAutoTool.spec
 ```
+
+**Or direct command:**
+```bash
+pyinstaller --onefile --windowed --name="ClinicAutoTool" \
+  --hidden-import=pandas._libs.hashtable \
+  --hidden-import=packaging.version \
+  interface.py
+```
+
+The executable will be in the `dist/` folder.
 
 ## Version History
 

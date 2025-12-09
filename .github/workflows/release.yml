@@ -1,44 +1,77 @@
-name: Build và Release ứng dụng Python
+name: Build and Release
 
 on:
   push:
     tags:
-      - 'v*.*.*'   # Tạo release khi push tag
-    branches:
-      - main       # Build khi push vào main
+      - 'v*.*.*'  # Triggers on tags like v1.2.0, v1.2.1, etc.
 
 jobs:
-  build-release:
-    runs-on: windows-latest
-
+  build-and-release:
+    runs-on: windows-latest  # Build on Windows for pywinauto
+    
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
-
+      uses: actions/checkout@v4
+      
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-
-    - name: Build with PyInstaller
+        
+    - name: Create VERSION file
+      shell: bash
       run: |
-        pyinstaller --onefile --noconsole --name Auto-Clinic interface.py
-
-    # Chỉ tạo release khi push TAG
+        echo "${GITHUB_REF#refs/tags/v}" > VERSION
+        
+    - name: Build executable with PyInstaller
+      run: |
+        pyinstaller ClinicAutoTool.spec
+        
+    - name: Rename executable for release
+      shell: bash
+      run: |
+        cd dist
+        mv ClinicAutoTool.exe ClinicAutoTool-${{ github.ref_name }}.exe
+        
     - name: Create Release
-      if: startsWith(github.ref, 'refs/tags/')
+      id: create_release
       uses: softprops/action-gh-release@v1
       with:
         tag_name: ${{ github.ref_name }}
-        name: Phiên bản ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
+        draft: false
         body: |
-          Đây là bản phát hành tự động.
+          ## What's New in ${{ github.ref_name }}
+          
+          ### Features
+          - ✨ Manual data entry dialog
+          - 🔄 Enhanced auto-update with changelog display
+          - 💾 Database storage for manual entries
+          
+          ### Improvements
+          - ⚡ Semantic version comparison
+          - 🛡️ Automatic backup before updates
+          - 📊 Merge CSV and manual data seamlessly
+          - 🐛 Fixed pandas build issues with PyInstaller
+          
+          ### Installation
+          1. Download `ClinicAutoTool-${{ github.ref_name }}.exe` below
+          2. Run the .exe file on Windows
+          3. The app will auto-update on future releases
+          
+          ### System Requirements
+          - Windows 10 or later
+          - No installation needed - just run the .exe
+          
+          ---
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}
         files: |
-          dist/Auto-Clinic.exe
+          dist/ClinicAutoTool-${{ github.ref_name }}.exe
       env:
         GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}

@@ -42,8 +42,22 @@
    ```
 
 2. **Build with PyInstaller:**
+   
+   **Option A - Using spec file (Recommended):**
    ```bash
-   pyinstaller --onefile --windowed --name="ClinicAutoTool" interface.py
+   pyinstaller ClinicAutoTool.spec
+   ```
+   
+   **Option B - Direct command:**
+   ```bash
+   pyinstaller --onefile --windowed --name="ClinicAutoTool" \
+     --hidden-import=pandas._libs.hashtable \
+     --hidden-import=pandas._libs.tslibs.timedeltas \
+     --hidden-import=pandas._libs.tslibs.np_datetime \
+     --hidden-import=pandas._libs.tslibs.nattype \
+     --hidden-import=packaging.version \
+     --hidden-import=tkcalendar \
+     interface.py
    ```
 
 3. **Test the executable:**
