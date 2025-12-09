@@ -22,7 +22,10 @@ a = Analysis(
     ['interface.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[
+        ('updater.py', '.'),  # Bundle updater.py with the .exe
+        ('updater.bat', '.'),  # Bundle Windows batch updater
+    ],
     hiddenimports=hidden_imports,
     hookspath=[],
     hooksconfig={},

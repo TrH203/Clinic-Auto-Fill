@@ -245,23 +245,72 @@ class AutomationGUI:
     def download_and_update(self):
         """Downloads the latest release and launches the updater."""
         try:
-            asset = self.update_info["assets"][0]
-            download_url = asset["browser_download_url"]
-            filename = asset["name"]
+            # Find the .exe file in assets
+            exe_asset = None
+            for asset in self.update_info["assets"]:
+                if asset["name"].endswith(".exe"):
+                    exe_asset = asset
+                    break
+            
+            if not exe_asset:
+                raise Exception("No .exe file found in release assets")
+            
+            download_url = exe_asset["browser_download_url"]
+            filename = exe_asset["name"]
             temp_filename = filename + ".new"
+            
+            self.log_message(f"⬇️ Downloading {filename}...")
 
             response = requests.get(download_url, stream=True)
             response.raise_for_status()
+            
+            total_size = int(response.headers.get('content-length', 0))
+            downloaded = 0
 
             with open(temp_filename, "wb") as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
+                    downloaded += len(chunk)
+                    if total_size > 0:
+                        percent = (downloaded / total_size) * 100
+                        self.log_message(f"  Downloading... {percent:.1f}%")
 
             self.log_message(f"✓ Downloaded {temp_filename}")
 
             # Launch the updater script
             latest_version = self.update_info["tag_name"]
-            subprocess.Popen([sys.executable, "updater.py", os.path.basename(sys.argv[0]), temp_filename, latest_version])
+            
+            # Check if running as frozen executable (PyInstaller)
+            if getattr(sys, 'frozen', False):
+                # Running as .exe - use batch script updater
+                current_exe = sys.executable
+                exe_dir = os.path.dirname(current_exe)
+                
+                # Extract bundled updater.bat
+                bundled_updater_bat = os.path.join(sys._MEIPASS, "updater.bat")
+                local_updater_bat = os.path.join(exe_dir, "updater.bat")
+                
+                # Copy updater.bat to exe directory
+                import shutil
+                shutil.copy2(bundled_updater_bat, local_updater_bat)
+                
+                # Run batch script
+                # Remove .new extension for the batch script
+                final_temp_name = temp_filename.replace(".new", "")
+                if os.path.exists(final_temp_name):
+                    os.remove(final_temp_name)
+                os.rename(temp_filename, final_temp_name)
+                
+                subprocess.Popen(
+                    [local_updater_bat, os.path.basename(current_exe), final_temp_name, latest_version],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
+                )
+            else:
+                # Running as script - use Python updater
+                subprocess.Popen([sys.executable, "updater.py", 
+                                os.path.basename(sys.argv[0]), temp_filename, latest_version])
+            
+            self.log_message("🚀 Updater launched. Application will restart.")
             self.root.destroy()
 
         except Exception as e:
