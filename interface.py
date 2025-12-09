@@ -3,7 +3,7 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import queue
 from pywinauto import Application
-from handle_data import read_data
+from handle_data import read_data, load_manual_data_from_json, merge_csv_and_manual_data
 from tool import Tool
 import time
 import os
@@ -11,7 +11,9 @@ import sys
 import subprocess
 import requests
 from config import PATIENT_ROW, TIEP
-from database import get_current_version_from_db, initialize_database
+from database import get_current_version_from_db, initialize_database, load_manual_entries_from_db
+from version_utils import is_newer_version, format_changelog
+from manual_entry import ManualEntryDialog
 
 CURRENT_VERSION = get_current_version_from_db()
 GITHUB_REPO = "TrH203/Clinic-Auto-Fill"
@@ -32,6 +34,8 @@ class AutomationGUI:
         self.app = None
         self.dlg = None
         self.all_data = []
+        self.manual_data = []
+        self.csv_data = []
         self.current_index = 0
         
         self.update_info = None
@@ -70,8 +74,11 @@ class AutomationGUI:
         file_entry = ttk.Entry(file_frame, textvariable=self.data_file_path, state='readonly')
         file_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 5))
         
-        browse_btn = ttk.Button(file_frame, text="Browse", command=self.browse_file)
-        browse_btn.grid(row=0, column=2)
+        browse_btn = ttk.Button(file_frame, text="Browse CSV", command=self.browse_file)
+        browse_btn.grid(row=0, column=2, padx=(0, 5))
+        
+        manual_btn = ttk.Button(file_frame, text="Manual Entry", command=self.open_manual_entry)
+        manual_btn.grid(row=0, column=3)
         
         # Connection section
         conn_frame = ttk.LabelFrame(main_frame, text="Application Connection", padding="10")
@@ -194,13 +201,14 @@ class AutomationGUI:
         """The actual update check logic."""
         try:
             api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
-            response = requests.get(api_url)
+            response = requests.get(api_url, timeout=10)
             response.raise_for_status()
 
             latest_release = response.json()
             latest_version = latest_release["tag_name"]
 
-            if latest_version > CURRENT_VERSION:
+            # Use semantic version comparison
+            if is_newer_version(CURRENT_VERSION, latest_version):
                 self.update_info = latest_release
                 self.root.after(0, self._enable_update_button)
         except Exception as e:
@@ -219,7 +227,17 @@ class AutomationGUI:
             return
 
         latest_version = self.update_info["tag_name"]
-        update_message = f"A new version ({latest_version}) is available. Do you want to download and install it?"
+        release_notes = self.update_info.get("body", "No release notes available.")
+        
+        # Format the message with changelog
+        changelog = format_changelog(release_notes, max_length=300)
+        update_message = (
+            f"A new version is available!\n\n"
+            f"Current Version: {CURRENT_VERSION}\n"
+            f"Latest Version: {latest_version}\n\n"
+            f"Release Notes:\n{changelog}\n\n"
+            f"Do you want to download and install it?"
+        )
 
         if messagebox.askyesno("Update Available", update_message):
             self.download_and_update()
@@ -272,14 +290,36 @@ class AutomationGUI:
             
     def load_data_file(self):
         try:
-            self.all_data = read_data(self.data_file_path.get())
-            self.log_message(f"✓ Loaded {len(self.all_data)} records from file")
-            self.progress_bar['maximum'] = len(self.all_data)
-            self.progress_var.set(f"0/{len(self.all_data)}")
+            self.csv_data = read_data(self.data_file_path.get())
+            self.merge_all_data()
+            self.log_message(f"✓ Loaded {len(self.csv_data)} records from CSV file")
             self.update_button_states()
         except Exception as e:
             self.log_message(f"✗ Error loading file: {str(e)}", "ERROR")
             messagebox.showerror("Error", f"Failed to load data file:\n{str(e)}")
+    
+    def open_manual_entry(self):
+        """Open manual entry dialog."""
+        try:
+            dialog = ManualEntryDialog(self.root, on_save_callback=self.on_manual_entry_saved)
+            result = dialog.show()
+        except Exception as e:
+            self.log_message(f"✗ Error opening manual entry: {str(e)}", "ERROR")
+            messagebox.showerror("Error", f"Failed to open manual entry:\n{str(e)}")
+    
+    def on_manual_entry_saved(self, data):
+        """Callback when manual entry is saved."""
+        self.manual_data.append(data)
+        self.merge_all_data()
+        self.log_message(f"✓ Added manual entry for Patient ID: {data['id']}")
+    
+    def merge_all_data(self):
+        """Merge CSV and manual data."""
+        self.all_data = merge_csv_and_manual_data(self.csv_data, self.manual_data)
+        total = len(self.all_data)
+        self.progress_bar['maximum'] = total if total > 0 else 1
+        self.progress_var.set(f"0/{total}")
+        self.log_message(f"📊 Total records: {total} (CSV: {len(self.csv_data)}, Manual: {len(self.manual_data)})")
             
     def connect_to_app(self):
         try:

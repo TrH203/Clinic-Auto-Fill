@@ -7,4 +7,6 @@ opencv-python
 pyperclip
 pyinstaller
 requests
+packaging
 comtypes
+tkcalendar
