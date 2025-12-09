@@ -257,11 +257,16 @@ class AutomationGUI:
             
             download_url = exe_asset["browser_download_url"]
             filename = exe_asset["name"]
-            temp_filename = filename + ".new"
             
-            self.log_message(f"⬇️ Downloading {filename}...")
+            # Download to Windows TEMP directory to avoid permission issues
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            temp_filename = os.path.join(temp_dir, filename)
+            
+            self.log_message(f"⬇️ Downloading {filename} to temp folder...")
+            self.log_message(f"  Location: {temp_dir}")
 
-            response = requests.get(download_url, stream=True)
+            response = requests.get(download_url, stream=True, timeout=60)
             response.raise_for_status()
             
             total_size = int(response.headers.get('content-length', 0))
@@ -271,11 +276,11 @@ class AutomationGUI:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
                     downloaded += len(chunk)
-                    if total_size > 0:
+                    if total_size > 0 and downloaded % (1024 * 1024) == 0:  # Log every MB
                         percent = (downloaded / total_size) * 100
-                        self.log_message(f"  Downloading... {percent:.1f}%")
+                        self.log_message(f"  Downloaded {downloaded // (1024*1024)} MB / {total_size // (1024*1024)} MB ({percent:.1f}%)")
 
-            self.log_message(f"✓ Downloaded {temp_filename}")
+            self.log_message(f"✓ Download complete: {temp_filename}")
 
             # Launch the updater script
             latest_version = self.update_info["tag_name"]
@@ -294,23 +299,23 @@ class AutomationGUI:
                 import shutil
                 shutil.copy2(bundled_updater_bat, local_updater_bat)
                 
-                # Run batch script
-                # Remove .new extension for the batch script
-                final_temp_name = temp_filename.replace(".new", "")
-                if os.path.exists(final_temp_name):
-                    os.remove(final_temp_name)
-                os.rename(temp_filename, final_temp_name)
+                self.log_message(f"🚀 Launching updater...")
+                self.log_message(f"  Current: {current_exe}")
+                self.log_message(f"  New version: {temp_filename}")
                 
+                # Launch batch script (file is already in temp, no rename needed)
                 subprocess.Popen(
-                    [local_updater_bat, os.path.basename(current_exe), final_temp_name, latest_version],
-                    creationflags=subprocess.CREATE_NEW_CONSOLE
+                    [local_updater_bat, os.path.basename(current_exe), temp_filename, latest_version],
+                    creationflags=subprocess.CREATE_NEW_CONSOLE,
+                    cwd=exe_dir  # Run from app directory
                 )
             else:
                 # Running as script - use Python updater
                 subprocess.Popen([sys.executable, "updater.py", 
                                 os.path.basename(sys.argv[0]), temp_filename, latest_version])
             
-            self.log_message("🚀 Updater launched. Application will restart.")
+            self.log_message("✓ Updater launched. Application will close and restart.")
+            time.sleep(1)  # Give user time to see the message
             self.root.destroy()
 
         except Exception as e:
