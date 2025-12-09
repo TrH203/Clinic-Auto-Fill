@@ -201,18 +201,22 @@ class AutomationGUI:
         clear_log_btn = ttk.Button(log_frame, text="Clear Log", command=self.clear_log)
         clear_log_btn.grid(row=1, column=0, sticky=tk.E, pady=(5, 0))
         
-        # Status bar
-        status_frame = ttk.Frame(self.root, padding="5")
-        status_frame.grid(row=1, column=0, sticky=(tk.W, tk.E))
-
+        
+        # Status section (at bottom, separate from scrollable content)
+        status_container = ttk.Frame(self.root)
+        status_container.pack(side="bottom", fill="x", padx=10, pady=5)
+        
+        status_frame = ttk.Frame(status_container)
+        status_frame.pack(fill="x")
+        
         self.version_label = ttk.Label(status_frame, text=f"Version: {CURRENT_VERSION}")
-        self.version_label.grid(row=0, column=0, sticky=tk.W)
+        self.version_label.pack(side="left", padx=(0, 10))
 
         # GitHub releases download button
         self.download_btn = ttk.Button(status_frame, text="📥 Download Latest Version",
                                        command=self.open_github_releases, 
                                        style="Accent.TButton")
-        self.download_btn.grid(row=0, column=1, sticky=tk.W, padx=(10, 0))
+        self.download_btn.pack(side="left")
     
     def open_github_releases(self):
         """Opens GitHub releases page in browser."""
