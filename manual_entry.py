@@ -103,13 +103,31 @@ class ManualEntryDialog:
         # Appointment Date
         ttk.Label(main_frame, text="Appointment Date:", font=('Arial', 10, 'bold')).grid(
             row=row, column=0, sticky=tk.W, pady=5)
+        
+        date_input_frame = ttk.Frame(main_frame)
+        date_input_frame.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
+        
         try:
-            self.date_entry = DateEntry(main_frame, width=37, background='darkblue',
+            self.date_entry = DateEntry(date_input_frame, width=20, background='darkblue',
                                        foreground='white', borderwidth=2, date_pattern='dd-mm-yyyy')
         except:
-            self.date_entry = ttk.Entry(main_frame, width=40)
+            self.date_entry = ttk.Entry(date_input_frame, width=23)
             self.date_entry.insert(0, datetime.now().strftime("%d-%m-%Y"))
-        self.date_entry.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
+        self.date_entry.grid(row=0, column=0, padx=(0, 10))
+        
+        # Quick date input (DDMMYY format)
+        ttk.Label(date_input_frame, text="or Quick:").grid(row=0, column=1, padx=(0, 5))
+        self.quick_date_var = tk.StringVar()
+        self.quick_date_entry = ttk.Entry(date_input_frame, textvariable=self.quick_date_var, width=10)
+        self.quick_date_entry.grid(row=0, column=2)
+        
+        # Quick date hint
+        ttk.Label(date_input_frame, text="(e.g., 091225)", font=('Arial', 8), foreground="gray").grid(
+            row=0, column=3, padx=(5, 0))
+        
+        # Bind quick date input
+        self.quick_date_entry.bind('<KeyRelease>', self.on_quick_date_input)
+        
         row += 1
         
         # Appointment Time
@@ -180,9 +198,9 @@ class ManualEntryDialog:
             combo.grid(row=i+1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
             
             # Add autocomplete behavior
-            def make_autocomplete(combo_widget, values_list):
+            def make_autocomplete(combo_widget, var_widget, values_list):
                 def on_keyrelease(event):
-                    value = event.widget.get()
+                    value = var_widget.get()
                     if value == '':
                         combo_widget['values'] = values_list
                     else:
@@ -193,7 +211,7 @@ class ManualEntryDialog:
                         combo_widget['values'] = data
                 return on_keyrelease
             
-            combo.bind('<KeyRelease>', make_autocomplete(combo, self.staff_display))
+            combo.bind('<KeyRelease>', make_autocomplete(combo, var, self.staff_display))
             self.staff_vars.append(var)
         
         # Notes Section
@@ -220,6 +238,41 @@ class ManualEntryDialog:
                               text="💡 Chọn đủ 4 thủ thuật và ít nhất 1 người thực hiện",
                               font=('Arial', 9), foreground="gray")
         info_label.grid(row=row+1, column=0, columnspan=2, pady=(0, 10))
+    
+    def on_quick_date_input(self, event):
+        """Handle quick date input (DDMMYY format)."""
+        quick_input = self.quick_date_var.get().strip()
+        
+        # Check if input is 6 digits
+        if len(quick_input) == 6 and quick_input.isdigit():
+            try:
+                dd = quick_input[0:2]
+                mm = quick_input[2:4]
+                yy = quick_input[4:6]
+                
+                # Convert to full year (assume 20YY)
+                yyyy = f"20{yy}"
+                
+                # Validate date
+                date_str = f"{dd}-{mm}-{yyyy}"
+                datetime.strptime(date_str, "%d-%m-%Y")  # Validate
+                
+                # Update the main date entry
+                if hasattr(self.date_entry, 'set_date'):
+                    date_obj = datetime.strptime(date_str, "%d-%m-%Y")
+                    self.date_entry.set_date(date_obj)
+                else:
+                    self.date_entry.delete(0, tk.END)
+                    self.date_entry.insert(0, date_str)
+                
+                # Visual feedback
+                self.quick_date_entry.config(foreground='green')
+            except ValueError:
+                # Invalid date
+                self.quick_date_entry.config(foreground='red')
+        else:
+            # Reset color if not 6 digits
+            self.quick_date_entry.config(foreground='black')
         
     def validate_input(self):
         """Validate user input."""

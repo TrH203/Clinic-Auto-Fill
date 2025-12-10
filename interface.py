@@ -3,7 +3,7 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import queue
 from pywinauto import Application
-from handle_data import read_data, load_manual_data_from_json, merge_csv_and_manual_data
+from handle_data import read_data, load_manual_data_from_json, merge_csv_and_manual_data, export_data_to_csv
 from tool import Tool
 import time
 import os
@@ -99,9 +99,50 @@ class AutomationGUI:
         export_btn = ttk.Button(file_frame, text="📄 Export CSV", command=self.export_to_csv)
         export_btn.grid(row=0, column=4)
         
+        # Data display table
+        data_table_frame = ttk.LabelFrame(main_frame, text="Loaded Data", padding="10")
+        data_table_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 10))
+        data_table_frame.columnconfigure(0, weight=1)
+        data_table_frame.rowconfigure(0, weight=1)
+        
+        # Create Treeview with scrollbars
+        tree_scroll_y = ttk.Scrollbar(data_table_frame, orient="vertical")
+        tree_scroll_x = ttk.Scrollbar(data_table_frame, orient="horizontal")
+        
+        self.data_tree = ttk.Treeview(data_table_frame, 
+                                      columns=('ID', 'Date', 'Time', 'Procedures', 'Staff', 'Source'),
+                                      show='headings',
+                                      height=8,
+                                      yscrollcommand=tree_scroll_y.set,
+                                      xscrollcommand=tree_scroll_x.set)
+        
+        tree_scroll_y.config(command=self.data_tree.yview)
+        tree_scroll_x.config(command=self.data_tree.xview)
+        
+        # Configure columns
+        self.data_tree.heading('ID', text='Patient ID')
+        self.data_tree.heading('Date', text='Date')
+        self.data_tree.heading('Time', text='Time')
+        self.data_tree.heading('Procedures', text='Procedures')
+        self.data_tree.heading('Staff', text='Staff')
+        self.data_tree.heading('Source', text='Source')
+        
+        self.data_tree.column('ID', width=100, anchor='center')
+        self.data_tree.column('Date', width=90, anchor='center')
+        self.data_tree.column('Time', width=60, anchor='center')
+        self.data_tree.column('Procedures', width=200, anchor='w')
+        self.data_tree.column('Staff', width=200, anchor='w')
+        self.data_tree.column('Source', width=60, anchor='center')
+        
+        # Grid layout for tree and scrollbars
+        self.data_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        tree_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        tree_scroll_x.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        
+        
         # Connection section
         conn_frame = ttk.LabelFrame(main_frame, text="Application Connection", padding="10")
-        conn_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        conn_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
         self.conn_status_label = ttk.Label(conn_frame, text="Status: Not Connected", 
                                           foreground="red")
@@ -113,7 +154,7 @@ class AutomationGUI:
         
         # Control section
         control_frame = ttk.LabelFrame(main_frame, text="Controls", padding="10")
-        control_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
+        control_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
         self.start_btn = ttk.Button(control_frame, text="Start Automation", 
                                    command=self.start_automation, state='disabled')
@@ -190,7 +231,7 @@ class AutomationGUI:
         
         # Log section
         log_frame = ttk.LabelFrame(main_frame, text="Activity Log", padding="10")
-        log_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        log_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
         
@@ -250,6 +291,7 @@ class AutomationGUI:
         try:
             self.csv_data = read_data(self.data_file_path.get())
             self.merge_all_data()
+            self.update_data_table()
             self.log_message(f"✓ Loaded {len(self.csv_data)} records from CSV file")
             self.update_button_states()
         except Exception as e:
@@ -269,6 +311,7 @@ class AutomationGUI:
         """Callback when manual entry is saved."""
         self.manual_data.append(data)
         self.merge_all_data()
+        self.update_data_table()
         self.log_message(f"✓ Added manual entry for Patient ID: {data['id']}")
     
     def merge_all_data(self):
@@ -278,12 +321,70 @@ class AutomationGUI:
         self.progress_bar['maximum'] = total if total > 0 else 1
         self.progress_var.set(f"0/{total}")
         self.log_message(f"📊 Total records: {total} (CSV: {len(self.csv_data)}, Manual: {len(self.manual_data)})")
+    
+    def update_data_table(self):
+        """Update the data table with current records."""
+        # Clear existing items
+        for item in self.data_tree.get_children():
+            self.data_tree.delete(item)
+        
+        # Add CSV data
+        for record in self.csv_data:
+            patient_id = record.get('id', '')
+            date = record.get('ngay', '')
+            
+            # Extract time from first thu_thuat
+            time_str = ''
+            if record.get('thu_thuats') and len(record['thu_thuats']) > 0:
+                first_tt = record['thu_thuats'][0]
+                ngay_bd_th = first_tt.get('Ngay BD TH', '')
+                if '{SPACE}' in ngay_bd_th:
+                    time_str = ngay_bd_th.split('{SPACE}')[1] if len(ngay_bd_th.split('{SPACE}')) > 1 else ''
+            
+            # Get procedures
+            procedures = ', '.join([tt.get('Ten', '') for tt in record.get('thu_thuats', [])])
+            
+            # Get staff (unique)
+            staff_set = set()
+            for tt in record.get('thu_thuats', []):
+                staff_name = tt.get('Nguoi Thuc Hien', '')
+                if staff_name:
+                    staff_set.add(staff_name)
+            staff = ', '.join(sorted(staff_set))
+            
+            self.data_tree.insert('', 'end', values=(patient_id, date, time_str, procedures, staff, 'CSV'))
+        
+        # Add manual data
+        for record in self.manual_data:
+            patient_id = record.get('id', '')
+            date = record.get('ngay', '')
+            
+            # Extract time from first thu_thuat
+            time_str = ''
+            if record.get('thu_thuats') and len(record['thu_thuats']) > 0:
+                first_tt = record['thu_thuats'][0]
+                ngay_bd_th = first_tt.get('Ngay BD TH', '')
+                if '{SPACE}' in ngay_bd_th:
+                    time_str = ngay_bd_th.split('{SPACE}')[1] if len(ngay_bd_th.split('{SPACE}')) > 1 else ''
+            
+            # Get procedures
+            procedures = ', '.join([tt.get('Ten', '') for tt in record.get('thu_thuats', [])])
+            
+            # Get staff (unique)
+            staff_set = set()
+            for tt in record.get('thu_thuats', []):
+                staff_name = tt.get('Nguoi Thuc Hien', '')
+                if staff_name:
+                    staff_set.add(staff_name)
+            staff = ', '.join(sorted(staff_set))
+            
+            self.data_tree.insert('', 'end', values=(patient_id, date, time_str, procedures, staff, 'Manual'))
             
     
     def export_to_csv(self):
-        """Export combined data to CSV file."""
-        if not self.all_data:
-            messagebox.showwarning("No Data", "No data to export. Please load CSV or add manual entries first.")
+        """Export CSV data to CSV file in import format."""
+        if not self.csv_data:
+            messagebox.showwarning("No Data", "No CSV data to export. Please load a CSV file first.")
             return
         
         filename = filedialog.asksaveasfilename(
@@ -296,28 +397,11 @@ class AutomationGUI:
             return
         
         try:
-            import csv
-            import json
-            
-            with open(filename, 'w', newline='', encoding='utf-8') as f:
-                writer = csv.writer(f)
-                
-                # Write header
-                writer.writerow(['Patient ID', 'Date', 'Procedures', 'Is First', 'Details (JSON)'])
-                
-                # Write data
-                for record in self.all_data:
-                    procedures = ", ".join([tt['Ten'] for tt in record.get('thu_thuats', [])])
-                    writer.writerow([
-                        record.get('id', ''),
-                        record.get('ngay', ''),
-                        procedures,
-                        'Yes' if record.get('isFirst', False) else 'No',
-                        json.dumps(record, ensure_ascii=False)
-                    ])
-            
-            self.log_message(f"✓ Exported {len(self.all_data)} records to {filename}")
-            messagebox.showinfo("Export Successful", f"Exported {len(self.all_data)} records to:\n{filename}")
+            export_data_to_csv(self.csv_data, filename)
+            self.log_message(f"✓ Exported {len(self.csv_data)} records to {filename}")
+            messagebox.showinfo("Export Successful", 
+                              f"Exported {len(self.csv_data)} CSV records in import format to:\n{filename}\n\n"
+                              f"Note: Manual entries are not included in CSV export.")
         
         except Exception as e:
             self.log_message(f"✗ Failed to export CSV: {e}", "ERROR")

@@ -352,6 +352,84 @@ def merge_csv_and_manual_data(csv_data, manual_data):
     return combined
 
 
+def export_data_to_csv(data_list, filename):
+    """
+    Export data to CSV file in the same format as the import format.
+    
+    Format:
+    PatientID;procedure1-procedure2-procedure3-procedure4;
+    HH:MM;staff1-staff2-staff3;DD-MM-YY
+    HH:MM;staff1-staff2-staff3;DD-MM-YY
+    ...
+    
+    Args:
+        data_list: List of data records from read_data()
+        filename: Output CSV filename
+    """
+    import csv
+    from collections import defaultdict
+    
+    # Group records by patient ID
+    grouped_data = defaultdict(list)
+    for record in data_list:
+        patient_id = record.get('id', '')
+        grouped_data[patient_id].append(record)
+    
+    with open(filename, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f, delimiter=';')
+        
+        for patient_id, records in grouped_data.items():
+            # Get procedures from first record (they should be the same for all records of this patient)
+            if records and records[0].get('thu_thuats'):
+                procedures = [tt.get('Ten', '') for tt in records[0]['thu_thuats']]
+                procedures_str = '-'.join(procedures)
+                
+                # Write patient ID and procedures line
+                writer.writerow([patient_id, procedures_str, ''])
+                
+                # Write each appointment (time, staff, date)
+                for record in records:
+                    ngay = record.get('ngay', '')
+                    # Convert DD-MM-YYYY to DD-MM-YY
+                    if ngay:
+                        parts = ngay.split('-')
+                        if len(parts) == 3:
+                            ngay_short = f"{parts[0]}-{parts[1]}-{parts[2][-2:]}"
+                        else:
+                            ngay_short = ngay
+                    else:
+                        ngay_short = ''
+                    
+                    # Extract time from first thu_thuat
+                    if record.get('thu_thuats') and len(record['thu_thuats']) > 0:
+                        first_tt = record['thu_thuats'][0]
+                        ngay_bd_th = first_tt.get('Ngay BD TH', '')
+                        # Extract time from "DD-MM-YYYY{SPACE}HH:MM" format
+                        if '{SPACE}' in ngay_bd_th:
+                            time_part = ngay_bd_th.split('{SPACE}')[1] if len(ngay_bd_th.split('{SPACE}')) > 1 else ''
+                        else:
+                            time_part = ''
+                        
+                        # Extract staff members (get unique staff from all thu_thuats)
+                        staff_set = []
+                        for tt in record['thu_thuats']:
+                            staff_name = tt.get('Nguoi Thuc Hien', '')
+                            if staff_name:
+                                # Convert full name to short name
+                                staff_short = None
+                                for short, full in map_ys_bs.items():
+                                    if full == staff_name:
+                                        staff_short = short
+                                        break
+                                if staff_short and staff_short not in staff_set:
+                                    staff_set.append(staff_short)
+                        
+                        staff_str = '-'.join(staff_set) if staff_set else ''
+                        
+                        # Write appointment row
+                        writer.writerow([time_part, staff_str, ngay_short])
+
+
 # -----------------------------
 # MAIN
 # -----------------------------
