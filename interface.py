@@ -21,7 +21,9 @@ class AutomationGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(f"Medical Data Automation Tool - v{CURRENT_VERSION}")
-        self.root.geometry("800x600")
+        self.root.geometry("850x650")
+        # Set minimum size to prevent UI breaking
+        self.root.minsize(750, 550)
         self.root.resizable(True, True)
         
         # Variables
@@ -101,7 +103,7 @@ class AutomationGUI:
         
         # Data display table
         data_table_frame = ttk.LabelFrame(main_frame, text="Loaded Data", padding="10")
-        data_table_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 10))
+        data_table_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 10))
         data_table_frame.columnconfigure(0, weight=1)
         data_table_frame.rowconfigure(0, weight=1)
         
@@ -112,7 +114,7 @@ class AutomationGUI:
         self.data_tree = ttk.Treeview(data_table_frame, 
                                       columns=('ID', 'Date', 'Time', 'Procedures', 'Staff', 'Source'),
                                       show='headings',
-                                      height=8,
+                                      height=6,
                                       yscrollcommand=tree_scroll_y.set,
                                       xscrollcommand=tree_scroll_x.set)
         
@@ -127,12 +129,13 @@ class AutomationGUI:
         self.data_tree.heading('Staff', text='Staff')
         self.data_tree.heading('Source', text='Source')
         
-        self.data_tree.column('ID', width=100, anchor='center')
-        self.data_tree.column('Date', width=90, anchor='center')
-        self.data_tree.column('Time', width=60, anchor='center')
-        self.data_tree.column('Procedures', width=200, anchor='w')
-        self.data_tree.column('Staff', width=200, anchor='w')
-        self.data_tree.column('Source', width=60, anchor='center')
+        # Set smaller column widths for better fit on small screens
+        self.data_tree.column('ID', width=85, minwidth=70, anchor='center')
+        self.data_tree.column('Date', width=80, minwidth=70, anchor='center')
+        self.data_tree.column('Time', width=50, minwidth=45, anchor='center')
+        self.data_tree.column('Procedures', width=130, minwidth=100, anchor='w')
+        self.data_tree.column('Staff', width=160, minwidth=120, anchor='w')
+        self.data_tree.column('Source', width=55, minwidth=50, anchor='center')
         
         # Grid layout for tree and scrollbars
         self.data_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
