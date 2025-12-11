@@ -3,24 +3,22 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import queue
 from pywinauto import Application
-from handle_data import read_data, load_manual_data_from_json, merge_csv_and_manual_data, export_data_to_csv
+from handle_data import read_data, export_data_to_csv, merge_csv_and_manual_data, load_manual_data_from_json, create_data_from_manual_input
 from tool import Tool
 import time
 import os
 import sys
 import webbrowser
-from config import PATIENT_ROW, TIEP
-from database import get_current_version_from_db, initialize_database, load_manual_entries_from_db
+from config_dialog import ConfigDialog
+from database import initialize_database, load_manual_entries_from_db
 from manual_entry import ManualEntryDialog
 
-CURRENT_VERSION = get_current_version_from_db()
 GITHUB_REPO = "TrH203/Clinic-Auto-Fill"
-GITHUB_RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
 
 class AutomationGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"Medical Data Automation Tool - v{CURRENT_VERSION}")
+        self.root.title(f"Medical Data Automation Tool")
         self.root.geometry("850x650")
         # Set minimum size to prevent UI breaking
         self.root.minsize(750, 550)
@@ -107,8 +105,11 @@ class AutomationGUI:
         manual_btn = ttk.Button(file_frame, text="Manual Entry", command=self.open_manual_entry)
         manual_btn.grid(row=0, column=3, padx=(0, 5))
         
+        config_btn = ttk.Button(file_frame, text="⚙️ Config", command=self.open_config_dialog)
+        config_btn.grid(row=0, column=4, padx=(0, 5))
+        
         export_btn = ttk.Button(file_frame, text="📄 Export CSV", command=self.export_to_csv)
-        export_btn.grid(row=0, column=4)
+        export_btn.grid(row=0, column=5)
         
         # Data display table
         data_table_frame = ttk.LabelFrame(main_frame, text="Loaded Data", padding="10")
@@ -300,6 +301,17 @@ class AutomationGUI:
         except Exception as e:
             self.log_message(f"✗ Error opening manual entry: {str(e)}", "ERROR")
             messagebox.showerror("Error", f"Failed to open manual entry:\n{str(e)}")
+    
+    def open_config_dialog(self):
+        """Open the staff configuration dialog."""
+        try:
+            dialog = ConfigDialog(self.root)
+            dialog.show()
+            # After config is saved, we might want to refresh manual entry if it's open
+            self.log_message("✓ Configuration updated")
+        except Exception as e:
+            self.log_message(f"✗ Failed to open config dialog: {str(e)}", "ERROR")
+            messagebox.showerror("Error", f"Failed to open config dialog:\n{str(e)}")
     
     def on_manual_entry_saved(self, data):
         """Callback when manual entry is saved."""

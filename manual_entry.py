@@ -8,6 +8,7 @@ from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
 
 from config import thu_thuat_dur_mapper, map_ys_bs
+import config
 from handle_data import create_data_from_manual_input
 from database import save_manual_entry_to_db
 import unicodedata
@@ -202,8 +203,8 @@ class ManualEntryDialog:
         ttk.Label(staff_frame, text="💡 Gõ tên để tìm nhanh, chọn 1-3 người theo thứ tự:").grid(
             row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
         
-        # Get available staff (capitalize for display)
-        self.available_staff = sorted(list(map_ys_bs.keys()))
+        # Get available staff (capitalize for display) and filter out disabled staff
+        self.available_staff = sorted([k for k in map_ys_bs.keys() if k not in config.disabled_staff])
         self.staff_display = [s.title() for s in self.available_staff]
         
         # Create 3 staff comboboxes with autocomplete
