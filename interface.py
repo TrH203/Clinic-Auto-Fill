@@ -246,29 +246,8 @@ class AutomationGUI:
         clear_log_btn.grid(row=1, column=0, sticky=tk.E, pady=(5, 0))
         
         
-        # Status section (at bottom, separate from scrollable content)
-        status_container = ttk.Frame(self.root)
-        status_container.pack(side="bottom", fill="x", padx=10, pady=5)
-        
-        status_frame = ttk.Frame(status_container)
-        status_frame.pack(fill="x")
-        
-        self.version_label = ttk.Label(status_frame, text=f"Version: {CURRENT_VERSION}")
-        self.version_label.pack(side="left", padx=(0, 10))
 
-        # GitHub releases download button
-        self.download_btn = ttk.Button(status_frame, text="📥 Download Latest Version",
-                                       command=self.open_github_releases, 
-                                       style="Accent.TButton")
-        self.download_btn.pack(side="left")
-    
-    def open_github_releases(self):
-        """Opens GitHub releases page in browser."""
-        try:
-            webbrowser.open(GITHUB_RELEASES_URL)
-            self.log_message(f"🔗 Opening GitHub releases: {GITHUB_RELEASES_URL}")
-        except Exception as e:
-            messagebox.showerror("Error", f"Failed to open browser:\n{e}")
+
 
     def setup_hotkeys(self):
         """Setup global hotkey for emergency stop"""
