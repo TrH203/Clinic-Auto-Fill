@@ -9,7 +9,7 @@ bs_mapper = {
 }
 thu_thuat_dur_mapper = {
     "điện": 30,
-    "thuỷ": 30,
+    # "thuỷ": 30,
     "thủy": 30,
     "xoa": 30,
     "kéo": 20,
@@ -18,7 +18,7 @@ thu_thuat_dur_mapper = {
 }
 thu_thuat_ability_mapper = {
     "điện": "ys",
-    "thuỷ": 'bs',
+    # "thuỷ": 'bs',
     "thủy": "bs",
     "xoa": "ys",
     "kéo": "bs",

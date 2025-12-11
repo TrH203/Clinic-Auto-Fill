@@ -42,9 +42,18 @@ class AutomationGUI:
         # Queue for thread communication
         self.log_queue = queue.Queue()
         
+        # Auto-save file path
+        self.auto_save_path = os.path.join(os.path.dirname(__file__), 'auto_save.csv')
+        
         self.setup_ui()
         self.setup_hotkeys()
         self.check_queue()
+        
+        # Bind close event for auto-save
+        self.root.protocol("WM_DELETE_WINDOW", self.on_app_close)
+        
+        # Auto-load data if available
+        self.auto_load_data()
         
         
     def setup_ui(self):
@@ -141,6 +150,9 @@ class AutomationGUI:
         self.data_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         tree_scroll_y.grid(row=0, column=1, sticky=(tk.N, tk.S))
         tree_scroll_x.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        
+        # Bind double-click to edit entry
+        self.data_tree.bind('<Double-Button-1>', self.edit_entry)
         
         
         # Connection section
@@ -296,6 +308,101 @@ class AutomationGUI:
         self.update_data_table()
         self.log_message(f"✓ Added manual entry for Patient ID: {data['id']}")
     
+    def edit_entry(self, event=None):
+        """Edit selected entry from the data table."""
+        selection = self.data_tree.selection()
+        if not selection:
+            return
+        
+        # Get the selected item
+        item = selection[0]
+        values = self.data_tree.item(item, 'values')
+        
+        if not values:
+            return
+        
+        patient_id = values[0]
+        source = values[5]  # CSV or Manual
+        
+        # Get the index of the selected item in the tree
+        all_items = self.data_tree.get_children()
+        tree_index = all_items.index(item)
+        
+        # Find the corresponding data entry using the tree index
+        # The tree displays CSV data first, then manual data
+        target_data = None
+        data_index = None
+        is_manual = False
+        
+        csv_count = len(self.csv_data)
+        
+        if tree_index < csv_count:
+            # This is a CSV entry
+            target_data = self.csv_data[tree_index]
+            data_index = tree_index
+            is_manual = False
+        else:
+            # This is a manual entry
+            manual_index = tree_index - csv_count
+            if manual_index < len(self.manual_data):
+                target_data = self.manual_data[manual_index]
+                data_index = manual_index
+                is_manual = True
+        
+        if not target_data:
+            messagebox.showerror("Error", "Could not find entry data.")
+            return
+        
+        try:
+            # Create a copy for editing
+            import copy
+            edit_data = copy.deepcopy(target_data)
+            
+            # Open manual entry dialog with existing data
+            dialog = ManualEntryDialog(self.root, 
+                                      on_save_callback=lambda d: self.on_entry_edited(d, is_manual, data_index),
+                                      initial_data=edit_data,
+                                      on_delete_callback=lambda: self.delete_entry(is_manual, data_index))
+            dialog.show()
+            
+        except Exception as e:
+            self.log_message(f"✗ Error opening edit dialog: {str(e)}", "ERROR")
+            messagebox.showerror("Error", f"Failed to open edit dialog:\n{str(e)}")
+    
+    def on_entry_edited(self, updated_data, is_manual, data_index):
+        """Callback when an entry is edited."""
+        # Update the data in the appropriate list
+        if is_manual:
+            if data_index < len(self.manual_data):
+                self.manual_data[data_index] = updated_data
+        else:
+            if data_index < len(self.csv_data):
+                self.csv_data[data_index] = updated_data
+        
+        # Refresh the merged data and table
+        self.merge_all_data()
+        self.update_data_table()
+        self.log_message(f"✓ Updated entry for Patient ID: {updated_data['id']}")
+    
+    def delete_entry(self, is_manual, data_index):
+        """Delete an entry from the data lists."""
+        try:
+            if is_manual:
+                if data_index < len(self.manual_data):
+                    deleted_entry = self.manual_data.pop(data_index)
+                    self.log_message(f"✓ Deleted manual entry for Patient ID: {deleted_entry.get('id', 'Unknown')}")
+            else:
+                if data_index < len(self.csv_data):
+                    deleted_entry = self.csv_data.pop(data_index)
+                    self.log_message(f"✓ Deleted CSV entry for Patient ID: {deleted_entry.get('id', 'Unknown')}")
+            
+            # Refresh the merged data and table
+            self.merge_all_data()
+            self.update_data_table()
+        except Exception as e:
+            self.log_message(f"✗ Error deleting entry: {str(e)}", "ERROR")
+            messagebox.showerror("Error", f"Failed to delete entry:\n{str(e)}")
+    
     def merge_all_data(self):
         """Merge CSV and manual data."""
         self.all_data = merge_csv_and_manual_data(self.csv_data, self.manual_data)
@@ -364,9 +471,9 @@ class AutomationGUI:
             
     
     def export_to_csv(self):
-        """Export CSV data to CSV file in import format."""
-        if not self.csv_data:
-            messagebox.showwarning("No Data", "No CSV data to export. Please load a CSV file first.")
+        """Export all data (CSV + Manual) to CSV file in import format."""
+        if not self.all_data:
+            messagebox.showwarning("No Data", "No data to export.")
             return
         
         filename = filedialog.asksaveasfilename(
@@ -378,12 +485,13 @@ class AutomationGUI:
         if not filename:
             return
         
+
         try:
-            export_data_to_csv(self.csv_data, filename)
-            self.log_message(f"✓ Exported {len(self.csv_data)} records to {filename}")
+            export_data_to_csv(self.all_data, filename)
+            self.log_message(f"✓ Exported {len(self.all_data)} records to {filename}")
             messagebox.showinfo("Export Successful", 
-                              f"Exported {len(self.csv_data)} CSV records in import format to:\n{filename}\n\n"
-                              f"Note: Manual entries are not included in CSV export.")
+                              f"Exported {len(self.all_data)} records in import format to:\n{filename}\n\n"
+                              f"Includes both loaded CSV and manual entries.")
         
         except Exception as e:
             self.log_message(f"✗ Failed to export CSV: {e}", "ERROR")
@@ -596,6 +704,40 @@ class AutomationGUI:
         self.log_text.config(state='normal')
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state='disabled')
+
+    def auto_save_data(self):
+        """Automatically save all data to CSV file."""
+        try:
+            if self.all_data:
+                export_data_to_csv(self.all_data, self.auto_save_path)
+                self.log_message(f"✓ Auto-saved {len(self.all_data)} records to {self.auto_save_path}")
+            else:
+                if os.path.exists(self.auto_save_path):
+                    os.remove(self.auto_save_path)
+        except Exception as e:
+            self.log_message(f"✗ Auto-save failed: {str(e)}", "ERROR")
+    
+    def auto_load_data(self):
+        """Automatically load data from auto-save file if it exists."""
+        try:
+            if os.path.exists(self.auto_save_path):
+                self.data_file_path.set(self.auto_save_path)
+                self.csv_data = read_data(self.auto_save_path)
+                manual_entries = load_manual_entries_from_db()
+                self.manual_data = load_manual_data_from_json(manual_entries)
+                self.merge_all_data()
+                self.update_data_table()
+                self.log_message(f"✓ Auto-loaded {len(self.all_data)} records")
+        except Exception as e:
+            self.log_message(f"✗ Auto-load failed: {str(e)}", "ERROR")
+    
+    def on_app_close(self):
+        """Handle application closing - auto-save data."""
+        try:
+            self.auto_save_data()
+            self.root.destroy()
+        except:
+            self.root.destroy()
 
 def main():
     initialize_database()
