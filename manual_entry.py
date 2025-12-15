@@ -468,9 +468,20 @@ class ManualEntryDialog:
         
     def validate_input(self):
         """Validate user input."""
-        # Check patient ID
-        if not self.patient_id_var.get().strip():
+        # Check patient ID - must be exactly 10 digits
+        patient_id = self.patient_id_var.get().strip()
+        if not patient_id:
             messagebox.showerror("Validation Error", "Please enter a Patient ID.")
+            return False
+        
+        if len(patient_id) != 10:
+            messagebox.showerror("Validation Error", "Patient ID must be exactly 10 digits!")
+            self.patient_id_entry.focus_set()
+            return False
+        
+        if not patient_id.isdigit():
+            messagebox.showerror("Validation Error", "Patient ID must contain only numbers!")
+            self.patient_id_entry.focus_set()
             return False
         
         # Check date
