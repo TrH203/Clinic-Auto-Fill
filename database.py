@@ -42,6 +42,14 @@ def initialize_database():
         )
     """)
     
+    # App settings table for storing configuration
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+    
     # Check if a version is already seeded
     cursor.execute("SELECT COUNT(*) FROM version")
     count = cursor.fetchone()[0]
@@ -170,6 +178,39 @@ def get_update_history(limit=10):
             'error_message': row[4]
         })
     return history
+
+
+# ===== App Settings Functions =====
+
+def get_disabled_staff():
+    """Get list of disabled staff from database."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM app_settings WHERE key = 'disabled_staff'")
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        import json
+        return json.loads(row[0])
+    return []
+
+
+def set_disabled_staff(disabled_list):
+    """Save list of disabled staff to database."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    import json
+    value = json.dumps(disabled_list)
+    
+    cursor.execute("""
+        INSERT OR REPLACE INTO app_settings (key, value)
+        VALUES ('disabled_staff', ?)
+    """, (value,))
+    
+    conn.commit()
+    conn.close()
 
 
 if __name__ == "__main__":

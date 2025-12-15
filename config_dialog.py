@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import config
+from database import get_disabled_staff, set_disabled_staff
 
 class ConfigDialog:
     def __init__(self, parent):
@@ -74,8 +75,9 @@ class ConfigDialog:
         scrollbar.pack(side="right", fill="y")
         
         # Create checkboxes for each staff member
+        disabled_staff = get_disabled_staff()
         for short_name, full_name in sorted(config.map_ys_bs.items(), key=lambda x: x[1]):
-            var = tk.BooleanVar(value=short_name not in config.disabled_staff)
+            var = tk.BooleanVar(value=short_name not in disabled_staff)
             self.checkbox_vars[short_name] = var
             
             cb = ttk.Checkbutton(scrollable_frame, 
@@ -95,19 +97,12 @@ class ConfigDialog:
         cancel_btn.grid(row=0, column=1, padx=5)
     
     def save_config(self):
-        """Save the configuration to config.py."""
+        """Save the configuration to database."""
         # Get list of disabled staff
         disabled = [name for name, var in self.checkbox_vars.items() if not var.get()]
         
-        # Update config module
-        config.disabled_staff = disabled
-        
-        # Also write to file
-        self.write_config_to_file(disabled)
-        
-        # Reload the config module to ensure changes are picked up
-        import importlib
-        importlib.reload(config)
+        # Save to database
+        set_disabled_staff(disabled)
         
         messagebox.showinfo("Success", f"Configuration saved!\n{len(disabled)} staff member(s) disabled.")
         self.dialog.destroy()

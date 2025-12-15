@@ -82,6 +82,6 @@ map_ys_bs = {
     "trúc": "Lê Ngọc Trúc",
 }
 
-# List of disabled/excluded staff members (lowercase short names as keys in map_ys_bs)
-# Staff in this list will not appear in manual entry and will cause errors during automation
-disabled_staff = ["diệu"]
+# # List of disabled/excluded staff members (lowercase short names as keys in map_ys_bs)
+# # Staff in this list will not appear in manual entry and will cause errors during automation
+# disabled_staff = ["diệu"]

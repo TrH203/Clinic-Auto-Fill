@@ -8,9 +8,8 @@ from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
 
 from config import thu_thuat_dur_mapper, map_ys_bs
-import config
 from handle_data import create_data_from_manual_input
-from database import save_manual_entry_to_db
+from database import save_manual_entry_to_db, get_disabled_staff
 import unicodedata
 
 def remove_accents(input_str):
@@ -204,7 +203,8 @@ class ManualEntryDialog:
             row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
         
         # Get available staff (capitalize for display) and filter out disabled staff
-        self.available_staff = sorted([k for k in map_ys_bs.keys() if k not in config.disabled_staff])
+        disabled_staff = get_disabled_staff()
+        self.available_staff = sorted([k for k in map_ys_bs.keys() if k not in disabled_staff])
         self.staff_display = [s.title() for s in self.available_staff]
         
         # Create 3 staff comboboxes with autocomplete
