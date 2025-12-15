@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from config import thu_thuat_dur_mapper, map_ys_bs
 from handle_data import create_data_from_manual_input
-from database import save_manual_entry_to_db, get_disabled_staff
+from database import save_manual_entry_to_db, get_disabled_staff, check_staff_available
 import unicodedata
 
 def remove_accents(input_str):
@@ -276,6 +276,20 @@ class ManualEntryDialog:
         hour_spinbox.bind('<Return>', self.focus_next_widget)
         minute_spinbox.bind('<Return>', self.focus_next_widget)
         
+        # Error label for leave validation (hidden by default)
+        self.leave_error_label = ttk.Label(main_frame, text="", foreground="red", 
+                                          font=('Arial', 9, 'bold'), wraplength=500)
+        self.leave_error_label.grid(row=row, column=0, columnspan=2, pady=(10, 0))
+        
+        # Bind validation to date, time, and staff changes
+        self.date_entry.bind('<FocusOut>', lambda e: self.validate_staff_leave())
+        self.hour_var.trace('w', lambda *args: self.validate_staff_leave())
+        self.minute_var.trace('w', lambda *args: self.validate_staff_leave())
+        for var in self.staff_vars:
+            var.trace('w', lambda *args: self.validate_staff_leave())
+        
+        row += 1
+        
         # Buttons
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=row, column=0, columnspan=2, pady=15)
@@ -465,6 +479,67 @@ class ManualEntryDialog:
             # Available options = all options minus selected (except current)
             available = [s for s in self.staff_display if s not in selected or s == current_value]
             combo['values'] = available
+    
+    def validate_staff_leave(self):
+        """Validate if selected staff are on leave for the given date/time."""
+        try:
+            # Get date
+            date_str = self.date_entry.get().strip()
+            if not date_str:
+                self.leave_error_label.config(text="")
+                return
+            
+            # Validate date format
+            try:
+                datetime.strptime(date_str, "%d-%m-%Y")
+            except ValueError:
+                self.leave_error_label.config(text="")
+                return
+            
+            # Convert DD-MM-YYYY to YYYY-MM-DD for database
+            date_obj = datetime.strptime(date_str, "%d-%m-%Y")
+            db_date = date_obj.strftime("%Y-%m-%d")
+            
+            # Get time
+            try:
+                hour = self.hour_var.get().zfill(2)
+                minute = self.minute_var.get().zfill(2)
+                time_str = f"{hour}:{minute}"
+            except:
+                self.leave_error_label.config(text="")
+                return
+            
+            # Check each selected staff
+            errors = []
+            for var in self.staff_vars:
+                staff_display = var.get().strip()
+                if not staff_display:
+                    continue
+                
+                # Staff display in manual entry are short names (Title Case)
+                # So we just convert to lowercase to get the key
+                staff_short = staff_display.lower()
+                
+                # Check if this is a valid staff key
+                if staff_short not in map_ys_bs:
+                    continue
+                
+                # Check availability
+                is_available, reason = check_staff_available(staff_short, db_date, time_str)
+                
+                if not is_available:
+                    full_name = map_ys_bs.get(staff_short, staff_short)
+                    errors.append(f"{full_name} nghỉ {reason}")
+            
+            # Display errors
+            if errors:
+                self.leave_error_label.config(text="⚠️ " + "; ".join(errors))
+            else:
+                self.leave_error_label.config(text="")
+                
+        except Exception as e:
+            # Silently fail validation
+            self.leave_error_label.config(text="")
         
     def validate_input(self):
         """Validate user input."""
@@ -517,10 +592,16 @@ class ManualEntryDialog:
         
         # Validate staff names exist in config
         for staff in selected_staff:
-            if staff not in self.available_staff:
-                messagebox.showerror("Validation Error", f"Unknown staff member: {staff}")
-                return False
+            if staff not in [s.lower() for s in self.available_staff]:
+                 # Note: self.available_staff are titles so lower() to compare
+                 pass
         
+        # Check for leave conflicts
+        self.validate_staff_leave() # Ensure label is updated
+        if self.leave_error_label.cget("text"):
+             messagebox.showerror("Validation Error", "Cannot save: Staff member is on leave.\nPlease check the error message below staff selection.")
+             return False
+
         return True
     
     def save_entry(self):
