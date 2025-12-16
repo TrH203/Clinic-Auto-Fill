@@ -7,8 +7,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
 
-from config import thu_thuat_dur_mapper, map_ys_bs
-from handle_data import create_data_from_manual_input
+import config
+from config import thu_thuat_dur_mapper, map_ys_bs, thu_thuat_ability_mapper
+from handle_data import create_data_from_manual_input, validate_all_data
 from database import save_manual_entry_to_db, get_disabled_staff, check_staff_available
 import unicodedata
 
@@ -27,7 +28,7 @@ class ManualEntryDialog:
     # Class variable to remember last used date across instances
     last_used_date = None
     
-    def __init__(self, parent, on_save_callback=None, initial_data=None, on_delete_callback=None):
+    def __init__(self, parent, on_save_callback=None, initial_data=None, on_delete_callback=None, existing_data=None):
         """
         Initialize the manual entry dialog.
         
@@ -36,11 +37,13 @@ class ManualEntryDialog:
             on_save_callback: Callback function when data is saved
             initial_data: Optional dict with existing data for editing
             on_delete_callback: Optional callback function when entry is deleted
+            existing_data: Optional list of all existing data for conflict validation
         """
         self.parent = parent
         self.on_save_callback = on_save_callback
         self.on_delete_callback = on_delete_callback
         self.initial_data = initial_data
+        self.existing_data = existing_data or []
         self.result = None
         
         # Create dialog window
@@ -434,26 +437,47 @@ class ManualEntryDialog:
                     proc_name = proc.get('Ten', '')
                     self.procedure_vars[i].set(proc_name)
             
-            # Update procedure options after setting values
-            self.update_procedure_options()
+            # Fill staff - Intelligent reconstruction based on procedure roles
+            p1_short = None
+            p2_short = None
+            p3_short = None
+            ys_count = 0
             
-            # Fill staff - extract unique staff from procedures
-            staff_names = []
             for proc in data['thu_thuats']:
+                proc_name = proc.get('Ten', '')
                 staff_full = proc.get('Nguoi Thuc Hien', '')
-                # Convert full name back to short name
+                
+                # Get short name
                 staff_short = None
                 for short, full in map_ys_bs.items():
-                    if full == staff_full and short not in [s.lower() for s in staff_names]:
-                        staff_short = short.title()
+                    if full == staff_full:
+                        staff_short = short
                         break
-                if staff_short and len(staff_names) < 3:
-                    staff_names.append(staff_short)
+                
+                if not staff_short:
+                    continue
+                    
+                # Determine role based on procedure ability
+                # Use strict lower case check for key
+                ability = thu_thuat_ability_mapper.get(proc_name, 'ys') # Default to ys if unknown?
+                
+                if ability == 'bs':
+                    if p2_short is None:
+                        p2_short = staff_short
+                else: # ys or ktv
+                    # Logic mirrors create_data: 0->P1, 1->P3, 2->P1, ...
+                    if ys_count % 2 == 0:
+                        if p1_short is None:
+                            p1_short = staff_short
+                    else:
+                        if p3_short is None:
+                            p3_short = staff_short
+                    ys_count += 1
             
-            # Set staff values
-            for i, staff_name in enumerate(staff_names):
-                if i < len(self.staff_vars):
-                    self.staff_vars[i].set(staff_name)
+            # Set values
+            if p1_short: self.staff_vars[0].set(p1_short.title())
+            if p2_short: self.staff_vars[1].set(p2_short.title())
+            if p3_short: self.staff_vars[2].set(p3_short.title())
             
             # Update staff options after setting values
             self.update_staff_options()
@@ -617,10 +641,13 @@ class ManualEntryDialog:
             return False
         
         # Validate staff names exist in config
+        # Validate staff names exist in config
+        all_valid_staff = [s.lower() for s in self.available_staff_g1 + self.available_staff_g2]
+        
         for staff in selected_staff:
-            if staff not in [s.lower() for s in self.available_staff]:
-                 # Note: self.available_staff are titles so lower() to compare
-                 pass
+            if staff not in all_valid_staff:
+                 messagebox.showerror("Validation Error", f"Unknown staff member: {staff}")
+                 return False
         
         # Check for leave conflicts
         self.validate_staff_leave() # Ensure label is updated
@@ -651,12 +678,40 @@ class ManualEntryDialog:
             
             # Create automation data
             data = create_data_from_manual_input(
-                patient_id=self.patient_id_var.get().strip(),
-                procedures_list=procedures,
-                staff_list=staff,
-                appointment_date=date_str,
-                appointment_time=time_str
+                self.patient_id_var.get().strip(),
+                procedures,
+                staff,
+                date_str,
+                time_str
             )
+            
+            # Validate against existing data for time conflicts
+            candidate_data = []
+            if self.initial_data:
+                # Exclude the record being edited by comparing patient ID and date
+                # Using 'is' comparison is unreliable because the object might have been copied
+                initial_id = self.initial_data.get('id', '')
+                initial_date = self.initial_data.get('ngay', '')
+                
+                candidate_data = [
+                    d for d in self.existing_data 
+                    if not (d.get('id') == initial_id and d.get('ngay') == initial_date)
+                ]
+            else:
+                candidate_data = list(self.existing_data)
+            
+            candidate_data.append(data)
+            
+            conflict_errors = validate_all_data(candidate_data)
+            if conflict_errors:
+                error_msg = "Cannot save due to schedule conflicts:\n\n"
+                # Show first few errors
+                error_msg += "\n\n".join(conflict_errors[:5])
+                if len(conflict_errors) > 5:
+                    error_msg += f"\n\n... and {len(conflict_errors) - 5} more."
+                
+                messagebox.showerror("Conflict Validation Failed", error_msg)
+                return
             
             # Save to database
             save_manual_entry_to_db(

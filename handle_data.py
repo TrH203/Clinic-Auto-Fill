@@ -419,29 +419,126 @@ def export_data_to_csv(data_list, filename):
                         else:
                             time_part = ''
                         
-                        # Extract staff members (get unique staff from all thu_thuats)
-                        staff_set = []
+                        # Reconstruct staff roles to ensure correct order: P1 - P2 - P3
+                        p1, p2, p3 = None, None, None
+                        ys_count = 0
+                        
                         for tt in record['thu_thuats']:
                             staff_name = tt.get('Nguoi Thuc Hien', '')
-                            if staff_name:
-                                # Convert full name to short name
-                                staff_short = None
-                                for short, full in map_ys_bs.items():
-                                    if full == staff_name:
-                                        staff_short = short
-                                        break
-                                if staff_short and staff_short not in staff_set:
-                                    staff_set.append(staff_short)
+                            proc_name = tt.get('Ten', '')
+                            if not staff_name: continue
+                            
+                            # Full to short
+                            staff_short = None
+                            for short, full in map_ys_bs.items():
+                                if full == staff_name:
+                                    staff_short = short
+                                    break
+                            if not staff_short: continue
+                            
+                            ability = thu_thuat_ability_mapper.get(proc_name, 'ys')
+                            
+                            if ability == 'bs':
+                                if not p2: p2 = staff_short
+                            else:
+                                if ys_count % 2 == 0:
+                                    if not p1: p1 = staff_short
+                                else:
+                                    if not p3: p3 = staff_short
+                                ys_count += 1
                         
-                        staff_str = '-'.join(staff_set) if staff_set else ''
+                        # Join strictly in order: Person 1, Person 2 (BS), Person 3
+                        # Filter out None values
+                        staff_ordered = [p for p in [p1, p2, p3] if p]
+                        staff_str = '-'.join(staff_ordered)
                         
                         # Write appointment row
                         writer.writerow([time_part, staff_str, ngay_short])
 
 
 # -----------------------------
-# MAIN
+# VALIDATION LOGIC
 # -----------------------------
+
+def validate_all_data(all_data):
+    """
+    Validate data for logic errors, specifically checking for time conflicts
+    among Group 1 staff (Position 1/3). Group 2 (Doctors) are exempt.
+    
+    Returns:
+        List of error messages (strings). Empty list if valid.
+    """
+    from collections import defaultdict
+    
+    errors = []
+    
+    # Schedule dictionary: staff_short_name -> list of (start_time, end_time, description)
+    schedules = defaultdict(list)
+    
+    # Reverse map for full name -> short name lookup
+    full_to_short = {v: k for k, v in map_ys_bs.items()}
+    
+    for record in all_data:
+        patient_id = record.get('id', 'Unknown')
+        
+        for tt in record.get('thu_thuats', []):
+            staff_full = tt.get('Nguoi Thuc Hien', '')
+            start_str = tt.get('Ngay BD TH', '').replace('{SPACE}', ' ').strip()
+            end_str = tt.get('Ngay KQ', '').replace('{SPACE}', ' ').strip()
+            
+            if not staff_full or not start_str or not end_str:
+                continue
+                
+            # Get short name
+            staff_short = full_to_short.get(staff_full)
+            if not staff_short:
+                continue # Skip unknown staff
+            
+            # Check if staff is in Group 1 (needs validation)
+            # We only validate if they are in staff_p1_p3. 
+            # If they are in staff_p2 (Group 2) but NOT in staff_p1_p3, we ignore overlaps.
+            # If they are in BOTH, we should probably validate because they might be acting in pos 1 role?
+            # The Requirement says "người ở vị trí 1 và 3".
+            # Since we don't strictly store "Position" in the final data structure (only implied by order/logic),
+            # the safest approach is: If the person is a "Group 1 Person", they shouldn't overlap.
+            # Most staff are mutually exclusive. If a doctor does a nurse job, they probably shouldn't overlap either?
+            # Let's stick to: If name in staff_p1_p3, check conflict.
+            
+            if staff_short in staff_p1_p3:
+                try:
+                    start_dt = datetime.strptime(start_str, "%d-%m-%Y %H:%M")
+                    end_dt = datetime.strptime(end_str, "%d-%m-%Y %H:%M")
+                    
+                    # Store tuple
+                    desc = f"Patient {patient_id} ({tt.get('Ten', '')})"
+                    schedules[staff_short].append((start_dt, end_dt, desc))
+                except Exception:
+                    continue # Skip parsing errors
+
+    # Check for overlaps
+    for staff_short, slots in schedules.items():
+        if len(slots) < 2:
+            continue
+            
+        # Sort by start time
+        slots.sort(key=lambda x: x[0])
+        
+        staff_full = map_ys_bs.get(staff_short, staff_short)
+        
+        for i in range(len(slots) - 1):
+            current_slot = slots[i]
+            next_slot = slots[i+1]
+            
+            # current start, current end, current desc
+            # Overlap if next_start < current_end
+            if next_slot[0] < current_slot[1]:
+                # Conflict found
+                msg = (f"Conflict for {staff_full} (Group 1):\n"
+                       f"  - {current_slot[2]}: {current_slot[0].strftime('%H:%M')} - {current_slot[1].strftime('%H:%M')}\n"
+                       f"  - {next_slot[2]}: {next_slot[0].strftime('%H:%M')} - {next_slot[1].strftime('%H:%M')}")
+                errors.append(msg)
+                
+    return errors
 if __name__ == "__main__":
     from collections import Counter
 

@@ -10,7 +10,7 @@ class ConfigDialog:
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Configuration")
-        self.dialog.geometry("600x650")
+        self.dialog.geometry("800x650")  # Increased from 600 to 800 for two columns
         self.dialog.resizable(False, False)
         
         # Make dialog modal

@@ -3,7 +3,7 @@ from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import queue
 from pywinauto import Application
-from handle_data import read_data, export_data_to_csv, merge_csv_and_manual_data, load_manual_data_from_json, create_data_from_manual_input
+from handle_data import read_data, export_data_to_csv, merge_csv_and_manual_data, load_manual_data_from_json, create_data_from_manual_input, validate_all_data
 from tool import Tool
 import time
 import os
@@ -19,9 +19,9 @@ class AutomationGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(f"Medical Data Automation Tool")
-        self.root.geometry("850x650")
+        self.root.geometry("900x720")  # Increased size to fit all content
         # Set minimum size to prevent UI breaking
-        self.root.minsize(750, 550)
+        self.root.minsize(850, 650)
         self.root.resizable(True, True)
         
         # Variables
@@ -55,30 +55,9 @@ class AutomationGUI:
         
         
     def setup_ui(self):
-        # Create canvas and scrollbar for scrollable window
-        canvas = tk.Canvas(self.root)
-        scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, padding="10")
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        # Pack canvas and scrollbar
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Mouse wheel scrolling
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
-        canvas.bind_all("<MouseWheel>", _on_mousewheel)
-        
-        # Use scrollable_frame as main container
-        main_frame = scrollable_frame
+        # Use direct frame instead of canvas for better layout
+        main_frame = ttk.Frame(self.root, padding="10")
+        main_frame.pack(fill="both", expand=True)
         
         # Configure grid weights
         main_frame.columnconfigure(1, weight=1)
@@ -109,7 +88,10 @@ class AutomationGUI:
         config_btn.grid(row=0, column=4, padx=(0, 5))
         
         export_btn = ttk.Button(file_frame, text="📄 Export CSV", command=self.export_to_csv)
-        export_btn.grid(row=0, column=5)
+        export_btn.grid(row=0, column=5, padx=(0, 5))
+        
+        validate_btn = ttk.Button(file_frame, text="🛡️ Validate Data", command=self.validate_data)
+        validate_btn.grid(row=0, column=6)
         
         # Data display table
         data_table_frame = ttk.LabelFrame(main_frame, text="Loaded Data", padding="10")
@@ -296,7 +278,7 @@ class AutomationGUI:
     def open_manual_entry(self):
         """Open manual entry dialog."""
         try:
-            dialog = ManualEntryDialog(self.root, on_save_callback=self.on_manual_entry_saved)
+            dialog = ManualEntryDialog(self.root, on_save_callback=self.on_manual_entry_saved, existing_data=self.all_data)
             result = dialog.show()
         except Exception as e:
             self.log_message(f"✗ Error opening manual entry: {str(e)}", "ERROR")
@@ -374,7 +356,8 @@ class AutomationGUI:
             dialog = ManualEntryDialog(self.root, 
                                       on_save_callback=lambda d: self.on_entry_edited(d, is_manual, data_index),
                                       initial_data=edit_data,
-                                      on_delete_callback=lambda: self.delete_entry(is_manual, data_index))
+                                      on_delete_callback=lambda: self.delete_entry(is_manual, data_index),
+                                      existing_data=self.all_data)
             dialog.show()
             
         except Exception as e:
@@ -488,6 +471,50 @@ class AutomationGUI:
             messagebox.showwarning("No Data", "No data to export.")
             return
         
+        # Validate data before exporting
+        try:
+            errors = validate_all_data(self.all_data)
+            
+            if errors:
+                self.log_message(f"✗ Validation failed with {len(errors)} errors.", "ERROR")
+                
+                # Format errors for display
+                error_text = f"Found {len(errors)} conflict(s):\n\n"
+                # Limit to first 5 for messagebox to avoid overflow
+                display_errors = errors[:5]
+                error_text += "\n\n".join(display_errors)
+                
+                if len(errors) > 5:
+                    error_text += f"\n\n... and {len(errors) - 5} more."
+                
+                error_text += "\n\nPlease fix these conflicts before exporting."
+                
+                # Ask user if they want to proceed anyway
+                proceed = messagebox.askyesno(
+                    "Validation Failed", 
+                    error_text + "\n\nDo you want to export anyway?",
+                    icon='warning'
+                )
+                
+                if not proceed:
+                    self.log_message("Export cancelled due to validation errors.")
+                    return
+            else:
+                self.log_message("✓ Validation passed! No conflicts found.")
+        except Exception as e:
+            self.log_message(f"✗ Validation error: {str(e)}", "ERROR")
+            
+            # Ask user if they want to proceed anyway
+            proceed = messagebox.askyesno(
+                "Validation Error", 
+                f"An error occurred during validation:\n{str(e)}\n\nDo you want to export anyway?",
+                icon='warning'
+            )
+            
+            if not proceed:
+                self.log_message("Export cancelled due to validation error.")
+                return
+    
         filename = filedialog.asksaveasfilename(
             title="Export Data to CSV",
             defaultextension=".csv",
@@ -508,6 +535,37 @@ class AutomationGUI:
         except Exception as e:
             self.log_message(f"✗ Failed to export CSV: {e}", "ERROR")
             messagebox.showerror("Export Error", f"Failed to export CSV:\n{e}")
+    
+    def validate_data(self):
+        """Validate currently loaded data for conflicts."""
+        if not self.all_data:
+            messagebox.showwarning("No Data", "No data to validate. Please load CSV or add manual entries.")
+            return
+            
+        try:
+            errors = validate_all_data(self.all_data)
+            
+            if errors:
+                self.log_message(f"✗ Validation failed with {len(errors)} errors.", "ERROR")
+                
+                # Format errors for display
+                error_text = f"Found {len(errors)} conflict(s):\n\n"
+                # Limit to first 10 for messagebox to avoid overflow
+                display_errors = errors[:10]
+                error_text += "\n\n".join(display_errors)
+                
+                if len(errors) > 10:
+                    error_text += f"\n\n... and {len(errors) - 10} more."
+                    
+                messagebox.showerror("Validation Failed", error_text)
+            else:
+                self.log_message("✓ Validation passed! No conflicts found.")
+                messagebox.showinfo("Validation Passed", 
+                                  f"Successfully validated {len(self.all_data)} records.\n"
+                                  "No Group 1 (Staff 1/3) conflicts found.")
+        except Exception as e:
+            self.log_message(f"✗ Validation error: {str(e)}", "ERROR")
+            messagebox.showerror("Error", f"An error occurred during validation:\n{str(e)}")
     
     def connect_to_app(self):
         try:
@@ -539,6 +597,32 @@ class AutomationGUI:
             
         if not (self.app and self.dlg):
             messagebox.showwarning("Warning", "Please connect to the application first.")
+            return
+        
+        # Validate data before starting automation
+        try:
+            errors = validate_all_data(self.all_data)
+            
+            if errors:
+                self.log_message(f"✗ Validation failed with {len(errors)} errors.", "ERROR")
+                
+                # Format errors for display
+                error_text = f"Found {len(errors)} conflict(s):\n\n"
+                # Limit to first 5 for messagebox to avoid overflow
+                display_errors = errors[:5]
+                error_text += "\n\n".join(display_errors)
+                
+                if len(errors) > 5:
+                    error_text += f"\n\n... and {len(errors) - 5} more."
+                
+                error_text += "\n\nPlease fix these conflicts before starting automation."
+                messagebox.showerror("Validation Failed", error_text)
+                return
+            else:
+                self.log_message("✓ Validation passed! No conflicts found.")
+        except Exception as e:
+            self.log_message(f"✗ Validation error: {str(e)}", "ERROR")
+            messagebox.showerror("Validation Error", f"An error occurred during validation:\n{str(e)}\n\nPlease fix the errors before starting automation.")
             return
             
         self.is_running = True
