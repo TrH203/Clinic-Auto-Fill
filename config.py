@@ -60,27 +60,55 @@ RELOAD = (390, 141)
 
 
 
-map_ys_bs = {
-    "hiền":"Trần Thị Thu Hiền",
-    "hoà":"Trần Thị Diệu Hoà",
-    "hòa":"Trần Thị Diệu Hoà",
-    "anh": "Nguyễn Duy Anh",
-    "duy": "Nguyễn Văn Duy",
-    "lya": "H' Lya Niê",
-    "thuận": "Võ Thị Bích Thuận",
-    "quân": "Lê Văn Quân",
-    "khoái": "Nguyễn Công Khoái",
-    "thịnh": "Nguyễn Văn Thịnh",
-    "quang": "Đinh Văn Quang",
-    "hạnh": "Nguyễn Hữu Hạnh",
-    "diệu": "Nguyễn Thị Diệu",
-    "lực": "Lê Đức Lực",
-    "nguyện": "Võ Thị Như Nguyện",
-    "trị": "Bùi Tá Việt Trị",  #BS
-    "thơ": "Lê Thị Ngọc Thơ",
-    "nhẹ": "H' Nhẹ Niê",
-    "trúc": "Lê Ngọc Trúc",
-}
+import json
+import os
+
+def load_staff_config(filename):
+    """Load staff configuration from JSON file."""
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        file_path = os.path.join(current_dir, filename)
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {}
+    except Exception as e:
+        print(f"Error loading {filename}: {e}")
+        return {}
+
+# Load staff groups
+staff_p1_p3 = load_staff_config("staff_group_1.json")
+staff_p2 = load_staff_config("staff_group_2.json")
+
+# Create merged map for backward compatibility
+map_ys_bs = {**staff_p1_p3, **staff_p2}
+
+# If files didn't exist or were empty, use default (fail-safe)
+if not map_ys_bs:
+    map_ys_bs = {
+        "hiền": "Trần Thị Thu Hiền",
+        "hoà": "Trần Thị Diệu Hoà",
+        "hòa": "Trần Thị Diệu Hoà",
+        "anh": "Nguyễn Duy Anh",
+        "duy": "Nguyễn Văn Duy",
+        "lya": "H' Lya Niê",
+        "thuận": "Võ Thị Bích Thuận",
+        "quân": "Lê Văn Quân",
+        "khoái": "Nguyễn Công Khoái",
+        "thịnh": "Nguyễn Văn Thịnh",
+        "quang": "Đinh Văn Quang",
+        "hạnh": "Nguyễn Hữu Hạnh",
+        "diệu": "Nguyễn Thị Diệu",
+        "lực": "Lê Đức Lực",
+        "nguyện": "Võ Thị Như Nguyện",
+        "trị": "Bùi Tá Việt Trị",  # BS
+        "thơ": "Lê Thị Ngọc Thơ",
+        "nhẹ": "H' Nhẹ Niê",
+        "trúc": "Lê Ngọc Trúc",
+    }
+    # Also populate groups if they were empty
+    staff_p1_p3 = map_ys_bs.copy()
+    staff_p2 = map_ys_bs.copy()
 
 # # List of disabled/excluded staff members (lowercase short names as keys in map_ys_bs)
 # # Staff in this list will not appear in manual entry and will cause errors during automation

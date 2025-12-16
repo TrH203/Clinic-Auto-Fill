@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from config import bs_mapper, thu_thuat_ability_mapper, thu_thuat_dur_mapper, map_ys_bs
+from config import bs_mapper, thu_thuat_ability_mapper, thu_thuat_dur_mapper, map_ys_bs, staff_p1_p3, staff_p2
 from pywinauto.uia_element_info import UIAElementInfo
 import pyautogui
 import pytesseract
@@ -179,7 +179,7 @@ def read_data(source='data.csv') -> list:
 
                 nguoi = [x.strip() for x in nguoi_raw.split("-")]
 
-                # Validate staff names
+                # Validate staff names globally first
                 for n in nguoi:
                     if n.lower() not in map_ys_bs:
                          raise ValueError(f"Lỗi ID {final_data['id']}: Tên nhân viên '{n}' sai hoặc thiếu dấu gạch ngang (-).")
@@ -189,6 +189,15 @@ def read_data(source='data.csv') -> list:
                 else:
                     idx_ng = 2 if flag else 0
                     flag = not flag
+                
+                # Strict validation based on position
+                staff_key = nguoi[idx_ng].lower()
+                if idx_ng == 1:
+                    if staff_key not in staff_p2:
+                        raise ValueError(f"Lỗi ID {final_data['id']}: Nhân viên '{map_ys_bs[staff_key]}' (vị trí 2) không có trong danh sách Group 2.")
+                else:
+                    if staff_key not in staff_p1_p3:
+                        raise ValueError(f"Lỗi ID {final_data['id']}: Nhân viên '{map_ys_bs[staff_key]}' (vị trí {idx_ng+1}) không có trong danh sách Group 1.")
 
                 obj["BS CD"] = bs_mapper[thu]
 
@@ -199,7 +208,7 @@ def read_data(source='data.csv') -> list:
                 except ValueError as e:
                      raise ValueError(f"Lỗi ID {final_data['id']}: {e}")
 
-                obj["Nguoi Thuc Hien"] = map_ys_bs[nguoi[idx_ng].lower()]
+                obj["Nguoi Thuc Hien"] = map_ys_bs[staff_key]
 
                 final_data["thu_thuats"].append(obj)
 

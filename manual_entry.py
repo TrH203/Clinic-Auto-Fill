@@ -204,8 +204,16 @@ class ManualEntryDialog:
         
         # Get available staff (capitalize for display) and filter out disabled staff
         disabled_staff = get_disabled_staff()
-        self.available_staff = sorted([k for k in map_ys_bs.keys() if k not in disabled_staff])
-        self.staff_display = [s.title() for s in self.available_staff]
+        
+        # Helper to filter and format staff lists
+        def prepare_staff_list(staff_dict):
+            return sorted([k for k in staff_dict.keys() if k not in disabled_staff])
+
+        self.available_staff_g1 = prepare_staff_list(config.staff_p1_p3)
+        self.available_staff_g2 = prepare_staff_list(config.staff_p2)
+        
+        self.staff_display_g1 = [s.title() for s in self.available_staff_g1]
+        self.staff_display_g2 = [s.title() for s in self.available_staff_g2]
         
         # Create 3 staff comboboxes with autocomplete
         self.staff_vars = []
@@ -214,9 +222,17 @@ class ManualEntryDialog:
             ttk.Label(staff_frame, text=f"Người {i+1}:").grid(row=i+1, column=0, sticky=tk.W, pady=5)
             var = tk.StringVar()
             
+            # Select appropriate list based on position
+            # People 1 and 3 (index 0 and 2) -> Group 1
+            # Person 2 (index 1) -> Group 2
+            if i == 1:
+                current_display_list = self.staff_display_g2
+            else:
+                current_display_list = self.staff_display_g1
+            
             # Create combobox that allows typing
             combo = ttk.Combobox(staff_frame, textvariable=var, 
-                                values=self.staff_display, width=35)
+                                values=current_display_list, width=35)
             combo.grid(row=i+1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
             
             # Add autocomplete behavior
@@ -249,7 +265,7 @@ class ManualEntryDialog:
 
                 return on_keyrelease
             
-            combo.bind('<KeyRelease>', make_autocomplete(combo, var, self.staff_display))
+            combo.bind('<KeyRelease>', make_autocomplete(combo, var, current_display_list))
             # Handle Enter to select first option if available or move focus
             def on_enter(event, combo=combo, var=var):
                 values = combo['values']
@@ -470,14 +486,24 @@ class ManualEntryDialog:
     
     def update_staff_options(self):
         """Update available options in staff comboboxes based on current selections."""
-        # Get all currently selected staff (normalize to title case)
+        # Get all currently selected staff (normalized)
         selected = [var.get() for var in self.staff_vars if var.get()]
         
         # Update each combobox
         for i, combo in enumerate(self.staff_combos):
             current_value = self.staff_vars[i].get()
-            # Available options = all options minus selected (except current)
-            available = [s for s in self.staff_display if s not in selected or s == current_value]
+            
+            # Determine which list this combo uses
+            if i == 1: # Person 2
+                source_list = self.staff_display_g2
+            else: # Person 1 and 3
+                source_list = self.staff_display_g1
+            
+            # Available options = source list minus selected (except current)
+            # This allows same person to be in both groups but not selected twice in same group
+            # If we want to prevent selecting same person across groups (e.g. person A in group 1 AND 2),
+            # we should keep 'selected' as global exclusion.
+            available = [s for s in source_list if s not in selected or s == current_value]
             combo['values'] = available
     
     def validate_staff_leave(self):

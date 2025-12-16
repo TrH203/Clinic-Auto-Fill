@@ -80,36 +80,65 @@ class ConfigDialog:
         
         # Info label
         info_label = ttk.Label(staff_frame, 
-                              text="Uncheck staff members to disable them from manual entry",
+                              text="Uncheck staff members to disable them from manual entry and automation",
                               font=('Arial', 9), foreground="gray", wraplength=500)
         info_label.pack(pady=(0, 15))
         
-        # Scrollable frame for checkboxes
-        canvas = tk.Canvas(staff_frame, height=400)
-        scrollbar = ttk.Scrollbar(staff_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas)
+        # Main container for the two lists
+        lists_container = ttk.Frame(staff_frame)
+        lists_container.pack(fill="both", expand=True)
         
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-        
-        # Create checkboxes for each staff member
+        # Initialize vars for all potential staff
         disabled_staff = get_disabled_staff()
-        for short_name, full_name in sorted(config.map_ys_bs.items(), key=lambda x: x[1]):
-            var = tk.BooleanVar(value=short_name not in disabled_staff)
-            self.checkbox_vars[short_name] = var
+        all_keys = set(config.staff_p1_p3.keys()) | set(config.staff_p2.keys())
+        
+        for key in all_keys:
+            self.checkbox_vars[key] = tk.BooleanVar(value=key not in disabled_staff)
             
-            cb = ttk.Checkbutton(scrollable_frame, 
-                                text=f"{full_name} ({short_name})",
-                                variable=var)
-            cb.pack(anchor="w", pady=2, padx=10)
+        def create_staff_list(parent, title, staff_dict):
+            frame = ttk.LabelFrame(parent, text=title, padding="10")
+            
+            # Scrollbar setup
+            canvas = tk.Canvas(frame)
+            scrollbar = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
+            scrollable_frame = ttk.Frame(canvas)
+            
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+            
+            canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+            
+            canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Populate
+            for short_name, full_name in sorted(staff_dict.items(), key=lambda x: x[1]):
+                # Use shared variable
+                var = self.checkbox_vars[short_name]
+                cb = ttk.Checkbutton(scrollable_frame, 
+                                    text=f"{full_name} ({short_name})",
+                                    variable=var)
+                cb.pack(anchor="w", pady=2)
+                
+                # Add mousewheel scrolling
+                def _on_mousewheel(event, c=canvas):
+                    c.yview_scroll(int(-1*(event.delta/120)), "units")
+                cb.bind("<MouseWheel>", _on_mousewheel)
+            
+            frame.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1*(e.delta/120)), "units"))
+            
+            return frame
+
+        # Group 1 List
+        f1 = create_staff_list(lists_container, "Group 1 (Staff 1 & 3)", config.staff_p1_p3)
+        f1.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        
+        # Group 2 List
+        f2 = create_staff_list(lists_container, "Group 2 (Staff 2)", config.staff_p2)
+        f2.pack(side="right", fill="both", expand=True, padx=(5, 0))
         
         # Save button for this tab
         save_btn = ttk.Button(staff_frame, text="💾 Save", command=self.save_staff_config, 
