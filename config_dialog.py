@@ -66,6 +66,9 @@ class ConfigDialog:
         # Tab 2: Leave Schedule
         self.setup_leave_tab(notebook)
         
+        # Tab 3: Coordinates
+        self.setup_coordinates_tab(notebook)
+        
         # Buttons at bottom
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=(15, 0))
@@ -327,6 +330,197 @@ class ConfigDialog:
         set_disabled_staff(disabled)
         
         messagebox.showinfo("Thành Công", f"Cấu hình đã lưu!\n{len(disabled)} nhân viên đã vô hiệu hóa.")
+    
+    def setup_coordinates_tab(self, notebook):
+        """Setup the coordinates configuration tab."""
+        import pyautogui
+        from database import get_all_coordinates, save_all_coordinates, restore_default_coordinates
+        
+        coords_frame = ttk.Frame(notebook, padding="15")
+        notebook.add(coords_frame, text="Tọa Độ")
+        
+        # Info label
+        info_label = ttk.Label(coords_frame,
+                              text="Cấu hình tọa độ các phần tử trên UI. Nhấn 'Bắt Tọa Độ' để xem vị trí con trỏ.",
+                              font=('Arial', 9), foreground="gray", wraplength=700)
+        info_label.pack(pady=(0, 10))
+        
+        # Create scrollable frame for coordinates
+        canvas_container = ttk.Frame(coords_frame)
+        canvas_container.pack(fill="both", expand=True)
+        
+        canvas = tk.Canvas(canvas_container)
+        scrollbar = ttk.Scrollbar(canvas_container, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Load coordinates
+        coords = get_all_coordinates()
+        sorted_coords = sorted(coords.items())
+        
+        # Store entry widgets
+        self.coord_entry_widgets = {}
+        
+        # Header
+        header_frame = ttk.Frame(scrollable_frame)
+        header_frame.pack(fill="x", padx=5, pady=(5, 10))
+        
+        ttk.Label(header_frame, text="Tên", font=('Arial', 9, 'bold'), width=22).grid(row=0, column=0, padx=5)
+        ttk.Label(header_frame, text="X", font=('Arial', 9, 'bold'), width=8).grid(row=0, column=1, padx=5)
+        ttk.Label(header_frame, text="Y", font=('Arial', 9, 'bold'), width=8).grid(row=0, column=2, padx=5)
+        ttk.Label(header_frame, text="Mô Tả", font=('Arial', 9, 'bold'), width=28).grid(row=0, column=3, padx=5)
+        ttk.Label(header_frame, text="", width=12).grid(row=0, column=4)
+        
+        # Separator
+        ttk.Separator(scrollable_frame, orient='horizontal').pack(fill='x', padx=5, pady=(0, 5))
+        
+        # Create rows for each coordinate
+        for name, (x, y, description) in sorted_coords:
+            row_frame = ttk.Frame(scrollable_frame)
+            row_frame.pack(fill="x", padx=5, pady=2)
+            
+            # Name label
+            ttk.Label(row_frame, text=name, width=22).grid(row=0, column=0, padx=5, sticky="w")
+            
+            # X coordinate
+            x_var = tk.IntVar(value=x)
+            x_entry = ttk.Entry(row_frame, textvariable=x_var, width=8)
+            x_entry.grid(row=0, column=1, padx=5)
+            
+            # Y coordinate
+            y_var = tk.IntVar(value=y)
+            y_entry = ttk.Entry(row_frame, textvariable=y_var, width=8)
+            y_entry.grid(row=0, column=2, padx=5)
+            
+            # Description
+            ttk.Label(row_frame, text=description[:35], width=28).grid(row=0, column=3, padx=5, sticky="w")
+            
+            # Capture button
+            def make_capture_callback(coord_name, xv, yv):
+                return lambda: self.show_position_tracker(coord_name, xv, yv)
+            
+            capture_btn = ttk.Button(row_frame, text="🎯 Bắt Tọa Độ",
+                                   command=make_capture_callback(name, x_var, y_var))
+            capture_btn.grid(row=0, column=4, padx=5)
+            
+            # Store references
+            self.coord_entry_widgets[name] = {
+                'x_var': x_var,
+                'y_var': y_var,
+                'description': description
+            }
+        
+        # Buttons frame
+        buttons_frame = ttk.Frame(coords_frame)
+        buttons_frame.pack(fill="x", pady=(10, 0))
+        
+        save_coords_btn = ttk.Button(buttons_frame, text="💾 Lưu Tọa Độ",
+                                     command=self.save_coordinates)
+        save_coords_btn.pack(side="left", padx=(0, 5))
+        
+        restore_btn = ttk.Button(buttons_frame, text="🔄 Khôi Phục Mặc Định",
+                                command=self.restore_default_coords)
+        restore_btn.pack(side="left")
+    
+    def show_position_tracker(self, coord_name, x_var, y_var):
+        """Show cursor position tracker window."""
+        import pyautogui
+        
+        pos_window = tk.Toplevel(self.dialog)
+        pos_window.title(f"Vị Trí Con Trỏ - {coord_name}")
+        pos_window.attributes('-topmost', True)
+        pos_window.geometry("400x250")
+        
+        # Center on screen
+        screen_width = pos_window.winfo_screenwidth()
+        screen_height = pos_window.winfo_screenheight()
+        x = (screen_width - 400) // 2
+        y = (screen_height - 250) // 2
+        pos_window.geometry(f"400x250+{x}+{y}")
+        
+        frame = ttk.Frame(pos_window, padding="20")
+        frame.pack(fill="both", expand=True)
+        
+        ttk.Label(frame, text=f"Hiển Thị Vị Trí: {coord_name}",
+                 font=('Arial', 12, 'bold')).pack(pady=(0, 15))
+        
+        pos_label = ttk.Label(frame, text="X: 0, Y: 0",
+                             font=('Arial', 16, 'bold'), foreground='blue')
+        pos_label.pack(pady=20)
+        
+        ttk.Label(frame,
+                 text="Di chuyển chuột đến vị trí mong muốn\nSau đó nhập thủ công giá trị X, Y vào ô bên trái\n\nNhấn ESC hoặc Đóng để thoát",
+                 font=('Arial', 9), justify="center").pack(pady=10)
+        
+        def update_position():
+            if pos_window.winfo_exists():
+                try:
+                    pos = pyautogui.position()
+                    pos_label.config(text=f"X: {pos.x}, Y: {pos.y}")
+                    pos_window.after(50, update_position)
+                except:
+                    pass
+        
+        update_position()
+        
+        close_btn = ttk.Button(frame, text="Đóng (ESC)",
+                              command=pos_window.destroy)
+        close_btn.pack(pady=10)
+        
+        pos_window.bind('<Escape>', lambda e: pos_window.destroy())
+        pos_window.focus_set()
+    
+    def save_coordinates(self):
+        """Save all coordinates to database."""
+        try:
+            from database import save_all_coordinates
+            import config
+            
+            coords_to_save = {}
+            for name, widgets in self.coord_entry_widgets.items():
+                x = widgets['x_var'].get()
+                y = widgets['y_var'].get()
+                description = widgets['description']
+                coords_to_save[name] = (x, y, description)
+            
+            save_all_coordinates(coords_to_save)
+            config.reload_coordinates()
+            
+            messagebox.showinfo("Thành Công",
+                              f"Đã lưu {len(coords_to_save)} tọa độ vào database.",
+                              parent=self.dialog)
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể lưu tọa độ:\n{str(e)}",
+                               parent=self.dialog)
+    
+    def restore_default_coords(self):
+        """Restore coordinates to defaults."""
+        if messagebox.askyesno("Xác Nhận",
+                              "Bạn có chắc muốn khôi phục tất cả tọa độ về giá trị mặc định?",
+                              parent=self.dialog):
+            try:
+                from database import restore_default_coordinates
+                import config
+                
+                restore_default_coordinates()
+                config.reload_coordinates()
+                
+                messagebox.showinfo("Thành Công",
+                                  "Đã khôi phục tất cả tọa độ về giá trị mặc định.\nVui lòng đóng và mở lại dialog để xem thay đổi.",
+                                  parent=self.dialog)
+            except Exception as e:
+                messagebox.showerror("Lỗi", f"Không thể khôi phục tọa độ:\n{str(e)}",
+                                   parent=self.dialog)
     
     def show(self):
         """Show the dialog and wait for it to close."""

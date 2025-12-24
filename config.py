@@ -33,30 +33,94 @@ DICH_VU_THU_THUAT = [
     (700,215)
 ]
 
-ID_BOX = (78, 191)
+# ===== Coordinate Configuration =====
+# Load coordinates from database, with hardcoded defaults as fallback
 
-LUU = (537,966)
-TIEP = (464, 964)
-SUA = (670,966)
+def load_coordinates_from_db():
+    """Load coordinates from database. Returns dict with coordinate names as keys and (x, y) tuples as values."""
+    try:
+        from database import get_all_coordinates, get_default_coordinates
+        
+        coords = get_all_coordinates()
+        
+        # If no coordinates in database, use defaults
+        if not coords:
+            default_coords = get_default_coordinates()
+            # Convert from (x, y, description) to (x, y)
+            return {name: (x, y) for name, (x, y, desc) in default_coords.items()}
+        
+        # Convert from (x, y, description) to (x, y)
+        return {name: (x, y) for name, (x, y, desc) in coords.items()}
+    except Exception as e:
+        print(f"Error loading coordinates from database: {e}")
+        # Fallback to hardcoded defaults
+        return {
+            'ID_BOX': (78, 191),
+            'LUU': (537, 966),
+            'TIEP': (464, 964),
+            'SUA': (670, 966),
+            'PATIENT_ROW': (181, 249),
+            'BSCD_NGUOI_DAU_TIEN': (1595, 348),
+            'CCHN_NGUOI_DAU_TIEN': (1624, 444),
+            'CCHN': (1820, 344),
+            'NGAY_KQ': (1820, 322),
+            'NGAY_BDTH': (1820, 299),
+            'NGAY_CD': (1820, 278),
+            'BSCD': (1820, 256),
+            'NGAY_KET_THUC': (275, 151),
+            'NGAY_BAT_DAU': (153, 151),
+            'CHO_THUC_HIEN': (126, 133),
+            'DA_THUC_HIEN': (250, 133),
+            'RELOAD': (390, 141),
+        }
 
-PATIENT_ROW = (181, 249)
+# Load coordinates
+_coords = load_coordinates_from_db()
 
-BSCD_NGUOI_DAU_TIEN = (1595,348)
-CCHN_NGUOI_DAU_TIEN = (1624,444)
+# Export as module-level constants for backward compatibility
+ID_BOX = _coords.get('ID_BOX', (78, 191))
+LUU = _coords.get('LUU', (537, 966))
+TIEP = _coords.get('TIEP', (464, 964))
+SUA = _coords.get('SUA', (670, 966))
+PATIENT_ROW = _coords.get('PATIENT_ROW', (181, 249))
+BSCD_NGUOI_DAU_TIEN = _coords.get('BSCD_NGUOI_DAU_TIEN', (1595, 348))
+CCHN_NGUOI_DAU_TIEN = _coords.get('CCHN_NGUOI_DAU_TIEN', (1624, 444))
+CCHN = _coords.get('CCHN', (1820, 344))
+NGAY_KQ = _coords.get('NGAY_KQ', (1820, 322))
+NGAY_BDTH = _coords.get('NGAY_BDTH', (1820, 299))
+NGAY_CD = _coords.get('NGAY_CD', (1820, 278))
+BSCD = _coords.get('BSCD', (1820, 256))
+NGAY_KET_THUC = _coords.get('NGAY_KET_THUC', (275, 151))
+NGAY_BAT_DAU = _coords.get('NGAY_BAT_DAU', (153, 151))
+CHO_THUC_HIEN = _coords.get('CHO_THUC_HIEN', (126, 133))
+DA_THUC_HIEN = _coords.get('DA_THUC_HIEN', (250, 133))
+RELOAD = _coords.get('RELOAD', (390, 141))
 
-CCHN = (1820,344)
-NGAY_KQ = (1820,322)
-NGAY_BDTH = (1820,299)
-NGAY_CD = (1820,278)
-BSCD = (1820, 256)
-
-NGAY_KET_THUC = (275, 151)
-NGAY_BAT_DAU = (153, 151)
-
-CHO_THUC_HIEN = (126, 133)
-DA_THUC_HIEN = (250, 133)
-
-RELOAD = (390, 141)
+def reload_coordinates():
+    """Reload coordinates from database. Call this after coordinates are updated."""
+    global ID_BOX, LUU, TIEP, SUA, PATIENT_ROW, BSCD_NGUOI_DAU_TIEN, CCHN_NGUOI_DAU_TIEN
+    global CCHN, NGAY_KQ, NGAY_BDTH, NGAY_CD, BSCD, NGAY_KET_THUC, NGAY_BAT_DAU
+    global CHO_THUC_HIEN, DA_THUC_HIEN, RELOAD, _coords
+    
+    _coords = load_coordinates_from_db()
+    
+    ID_BOX = _coords.get('ID_BOX', (78, 191))
+    LUU = _coords.get('LUU', (537, 966))
+    TIEP = _coords.get('TIEP', (464, 964))
+    SUA = _coords.get('SUA', (670, 966))
+    PATIENT_ROW = _coords.get('PATIENT_ROW', (181, 249))
+    BSCD_NGUOI_DAU_TIEN = _coords.get('BSCD_NGUOI_DAU_TIEN', (1595, 348))
+    CCHN_NGUOI_DAU_TIEN = _coords.get('CCHN_NGUOI_DAU_TIEN', (1624, 444))
+    CCHN = _coords.get('CCHN', (1820, 344))
+    NGAY_KQ = _coords.get('NGAY_KQ', (1820, 322))
+    NGAY_BDTH = _coords.get('NGAY_BDTH', (1820, 299))
+    NGAY_CD = _coords.get('NGAY_CD', (1820, 278))
+    BSCD = _coords.get('BSCD', (1820, 256))
+    NGAY_KET_THUC = _coords.get('NGAY_KET_THUC', (275, 151))
+    NGAY_BAT_DAU = _coords.get('NGAY_BAT_DAU', (153, 151))
+    CHO_THUC_HIEN = _coords.get('CHO_THUC_HIEN', (126, 133))
+    DA_THUC_HIEN = _coords.get('DA_THUC_HIEN', (250, 133))
+    RELOAD = _coords.get('RELOAD', (390, 141))
 
 
 

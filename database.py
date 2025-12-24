@@ -41,9 +41,22 @@ def initialize_database():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+    
+    # Coordinates table for storing UI element positions
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS coordinates (
+            name TEXT PRIMARY KEY,
+            x INTEGER NOT NULL,
+            y INTEGER NOT NULL,
+            description TEXT
+        )
+    """)
 
     conn.commit()
     conn.close()
+    
+    # Initialize default coordinates if table is empty
+    initialize_default_coordinates()
 
 
 # ===== Manual Entries Functions =====
@@ -221,6 +234,128 @@ def check_staff_available(staff_short_name, date_str, time_str):
         return (False, session_vn)
     
     return (True, "")
+
+
+# ===== Coordinates Management Functions =====
+
+def get_default_coordinates():
+    """Returns the default coordinate mappings."""
+    return {
+        'ID_BOX': (78, 191, 'Patient ID input box'),
+        'LUU': (537, 966, 'Save button'),
+        'TIEP': (464, 964, 'Next button'),
+        'SUA': (670, 966, 'Edit button'),
+        'PATIENT_ROW': (181, 249, 'First patient row in list'),
+        'BSCD_NGUOI_DAU_TIEN': (1595, 348, 'First doctor in dropdown'),
+        'CCHN_NGUOI_DAU_TIEN': (1624, 444, 'First diagnosis in dropdown'),
+        'CCHN': (1820, 344, 'Diagnosis field'),
+        'NGAY_KQ': (1820, 322, 'Result date field'),
+        'NGAY_BDTH': (1820, 299, 'Start implementation date field'),
+        'NGAY_CD': (1820, 278, 'Diagnosis date field'),
+        'BSCD': (1820, 256, 'Diagnosing doctor field'),
+        'NGAY_KET_THUC': (275, 151, 'End date field'),
+        'NGAY_BAT_DAU': (153, 151, 'Start date field'),
+        'CHO_THUC_HIEN': (126, 133, 'Pending execution tab'),
+        'DA_THUC_HIEN': (250, 133, 'Completed execution tab'),
+        'RELOAD': (390, 141, 'Reload button'),
+    }
+
+
+def initialize_default_coordinates():
+    """Initialize coordinates table with default values if empty."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # Check if table has any data
+    cursor.execute("SELECT COUNT(*) FROM coordinates")
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        # Insert default coordinates
+        default_coords = get_default_coordinates()
+        for name, (x, y, description) in default_coords.items():
+            cursor.execute("""
+                INSERT INTO coordinates (name, x, y, description)
+                VALUES (?, ?, ?, ?)
+            """, (name, x, y, description))
+        
+        conn.commit()
+    
+    conn.close()
+
+
+def get_coordinate(name):
+    """Get a specific coordinate by name. Returns tuple (x, y) or None."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT x, y FROM coordinates WHERE name = ?", (name,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return (row[0], row[1])
+    return None
+
+
+def get_all_coordinates():
+    """Get all coordinates. Returns dict with name as key and (x, y, description) as value."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, x, y, description FROM coordinates ORDER BY name")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    coords = {}
+    for row in rows:
+        coords[row[0]] = (row[1], row[2], row[3] if row[3] else "")
+    return coords
+
+
+def save_coordinate(name, x, y, description=""):
+    """Save or update a coordinate."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR REPLACE INTO coordinates (name, x, y, description)
+        VALUES (?, ?, ?, ?)
+    """, (name, x, y, description))
+    conn.commit()
+    conn.close()
+
+
+def save_all_coordinates(coords_dict):
+    """Save multiple coordinates at once. coords_dict format: {name: (x, y, description)}"""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    for name, (x, y, description) in coords_dict.items():
+        cursor.execute("""
+            INSERT OR REPLACE INTO coordinates (name, x, y, description)
+            VALUES (?, ?, ?, ?)
+        """, (name, x, y, description))
+    
+    conn.commit()
+    conn.close()
+
+
+def restore_default_coordinates():
+    """Restore all coordinates to default values."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # Delete all existing coordinates
+    cursor.execute("DELETE FROM coordinates")
+    
+    # Insert default coordinates
+    default_coords = get_default_coordinates()
+    for name, (x, y, description) in default_coords.items():
+        cursor.execute("""
+            INSERT INTO coordinates (name, x, y, description)
+            VALUES (?, ?, ?, ?)
+        """, (name, x, y, description))
+    
+    conn.commit()
+    conn.close()
 
 
 if __name__ == "__main__":
