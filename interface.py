@@ -19,9 +19,9 @@ class AutomationGUI:
     def __init__(self, root):
         self.root = root
         self.root.title(f"Medical Data Automation Tool")
-        self.root.geometry("900x720")  # Increased size to fit all content
+        self.root.geometry("1000x850")  # Increased size to fit all content
         # Set minimum size to prevent UI breaking
-        self.root.minsize(850, 650)
+        self.root.minsize(950, 800)
         self.root.resizable(True, True)
         
         # Variables
@@ -78,19 +78,19 @@ class AutomationGUI:
         file_entry = ttk.Entry(file_frame, textvariable=self.data_file_path, state='readonly')
         file_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 5))
         
-        browse_btn = ttk.Button(file_frame, text="Browse CSV", command=self.browse_file)
+        browse_btn = ttk.Button(file_frame, text="Chọn CSV", command=self.browse_file)
         browse_btn.grid(row=0, column=2, padx=(0, 5))
         
-        manual_btn = ttk.Button(file_frame, text="Manual Entry", command=self.open_manual_entry)
+        manual_btn = ttk.Button(file_frame, text="Nhập Liệu", command=self.open_manual_entry)
         manual_btn.grid(row=0, column=3, padx=(0, 5))
         
-        config_btn = ttk.Button(file_frame, text="⚙️ Config", command=self.open_config_dialog)
+        config_btn = ttk.Button(file_frame, text="⚙️ Cấu Hình", command=self.open_config_dialog)
         config_btn.grid(row=0, column=4, padx=(0, 5))
         
-        export_btn = ttk.Button(file_frame, text="📄 Export CSV", command=self.export_to_csv)
+        export_btn = ttk.Button(file_frame, text="📄 Xuất CSV", command=self.export_to_csv)
         export_btn.grid(row=0, column=5, padx=(0, 5))
         
-        validate_btn = ttk.Button(file_frame, text="🛡️ Validate Data", command=self.validate_data)
+        validate_btn = ttk.Button(file_frame, text="🛡️ Kiểm Tra Dữ Liệu", command=self.validate_data)
         validate_btn.grid(row=0, column=6)
         
         # Data display table
@@ -142,11 +142,11 @@ class AutomationGUI:
         conn_frame = ttk.LabelFrame(main_frame, text="Application Connection", padding="10")
         conn_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
-        self.conn_status_label = ttk.Label(conn_frame, text="Status: Not Connected", 
+        self.conn_status_label = ttk.Label(conn_frame, text="Trạng Thái: Chưa Kết Nối", 
                                           foreground="red")
         self.conn_status_label.grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         
-        connect_btn = ttk.Button(conn_frame, text="Connect to Application", 
+        connect_btn = ttk.Button(conn_frame, text="Kết Nối Ứng Dụng", 
                                command=self.connect_to_app)
         connect_btn.grid(row=0, column=1)
         
@@ -154,20 +154,20 @@ class AutomationGUI:
         control_frame = ttk.LabelFrame(main_frame, text="Controls", padding="10")
         control_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
-        self.start_btn = ttk.Button(control_frame, text="Start Automation", 
+        self.start_btn = ttk.Button(control_frame, text="Bắt Đầu Tự Động", 
                                    command=self.start_automation, state='disabled')
         self.start_btn.grid(row=0, column=0, padx=(0, 5))
         
-        self.stop_btn = ttk.Button(control_frame, text="Stop Automation", 
+        self.stop_btn = ttk.Button(control_frame, text="Dừng Tự Động", 
                                   command=self.stop_automation, state='disabled')
         self.stop_btn.grid(row=0, column=1, padx=(0, 5))
         
-        self.pause_btn = ttk.Button(control_frame, text="Pause", 
+        self.pause_btn = ttk.Button(control_frame, text="Tạm Dừng", 
                                    command=self.pause_automation, state='disabled')
         self.pause_btn.grid(row=0, column=2, padx=(0, 5))
         
         # Emergency stop button
-        self.emergency_btn = ttk.Button(control_frame, text="🛑 EMERGENCY STOP", 
+        self.emergency_btn = ttk.Button(control_frame, text="🛑 DỪNG KHẨN CẤP", 
                                        command=self.emergency_stop, 
                                        style="Emergency.TButton")
         self.emergency_btn.grid(row=0, column=3, padx=(10, 0))
@@ -237,7 +237,7 @@ class AutomationGUI:
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         # Clear log button
-        clear_log_btn = ttk.Button(log_frame, text="Clear Log", command=self.clear_log)
+        clear_log_btn = ttk.Button(log_frame, text="Xóa Nhật Ký", command=self.clear_log)
         clear_log_btn.grid(row=1, column=0, sticky=tk.E, pady=(5, 0))
         
         
@@ -273,7 +273,7 @@ class AutomationGUI:
             self.update_button_states()
         except Exception as e:
             self.log_message(f"✗ Error loading file: {str(e)}", "ERROR")
-            messagebox.showerror("Error", f"Failed to load data file:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Không thể tải tập tin:\n{str(e)}")
     
     def open_manual_entry(self):
         """Open manual entry dialog."""
@@ -282,7 +282,7 @@ class AutomationGUI:
             result = dialog.show()
         except Exception as e:
             self.log_message(f"✗ Error opening manual entry: {str(e)}", "ERROR")
-            messagebox.showerror("Error", f"Failed to open manual entry:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Không thể mở nhập liệu thủ công:\n{str(e)}")
     
     def open_config_dialog(self):
         """Open the staff configuration dialog."""
@@ -293,7 +293,7 @@ class AutomationGUI:
             self.log_message("✓ Configuration updated")
         except Exception as e:
             self.log_message(f"✗ Failed to open config dialog: {str(e)}", "ERROR")
-            messagebox.showerror("Error", f"Failed to open config dialog:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Không thể mở cấu hình:\n{str(e)}")
     
     def on_manual_entry_saved(self, data):
         """Callback when manual entry is saved."""
@@ -344,7 +344,7 @@ class AutomationGUI:
                 is_manual = True
         
         if not target_data:
-            messagebox.showerror("Error", "Could not find entry data.")
+            messagebox.showerror("Lỗi", "Không tìm thấy dữ liệu.")
             return
         
         try:
@@ -362,7 +362,7 @@ class AutomationGUI:
             
         except Exception as e:
             self.log_message(f"✗ Error opening edit dialog: {str(e)}", "ERROR")
-            messagebox.showerror("Error", f"Failed to open edit dialog:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Không thể mở cửa sổ chỉnh sửa:\n{str(e)}")
     
     def on_entry_edited(self, updated_data, is_manual, data_index):
         """Callback when an entry is edited."""
@@ -396,7 +396,7 @@ class AutomationGUI:
             self.update_data_table()
         except Exception as e:
             self.log_message(f"✗ Error deleting entry: {str(e)}", "ERROR")
-            messagebox.showerror("Error", f"Failed to delete entry:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Không thể xóa bản ghi:\n{str(e)}")
     
     def merge_all_data(self):
         """Merge CSV and manual data."""
@@ -479,7 +479,7 @@ class AutomationGUI:
                 self.log_message(f"✗ Validation failed with {len(errors)} errors.", "ERROR")
                 
                 # Format errors for display
-                error_text = f"Found {len(errors)} conflict(s):\n\n"
+                error_text = f"Tìm thấy {len(errors)} xung đột:\n\n"
                 # Limit to first 5 for messagebox to avoid overflow
                 display_errors = errors[:5]
                 error_text += "\n\n".join(display_errors)
@@ -487,12 +487,12 @@ class AutomationGUI:
                 if len(errors) > 5:
                     error_text += f"\n\n... and {len(errors) - 5} more."
                 
-                error_text += "\n\nPlease fix these conflicts before exporting."
+                error_text += "\n\nVui lòng sửa các xung đột này trước khi xuất."
                 
                 # Ask user if they want to proceed anyway
                 proceed = messagebox.askyesno(
-                    "Validation Failed", 
-                    error_text + "\n\nDo you want to export anyway?",
+                    "Định Dạng Sai", 
+                    error_text + "\n\nBạn có muốn xuất dù sao không?",
                     icon='warning'
                 )
                 
@@ -506,8 +506,8 @@ class AutomationGUI:
             
             # Ask user if they want to proceed anyway
             proceed = messagebox.askyesno(
-                "Validation Error", 
-                f"An error occurred during validation:\n{str(e)}\n\nDo you want to export anyway?",
+                "Lỗi Kiểm Tra", 
+                f"Lỗi trong quá trình kiểm tra:\n{str(e)}\n\nBạn có muốn xuất dù sao không?",
                 icon='warning'
             )
             
@@ -528,13 +528,12 @@ class AutomationGUI:
         try:
             export_data_to_csv(self.all_data, filename)
             self.log_message(f"✓ Exported {len(self.all_data)} records to {filename}")
-            messagebox.showinfo("Export Successful", 
-                              f"Exported {len(self.all_data)} records in import format to:\n{filename}\n\n"
-                              f"Includes both loaded CSV and manual entries.")
+            messagebox.showinfo("Xuất Thành Công", 
+                              f"Đã xuất {len(self.all_data)} bản ghi ra:\n{filename}")
         
         except Exception as e:
             self.log_message(f"✗ Failed to export CSV: {e}", "ERROR")
-            messagebox.showerror("Export Error", f"Failed to export CSV:\n{e}")
+            messagebox.showerror("Lỗi Xuất", f"Không thể xuất CSV:\n{e}")
     
     def validate_data(self):
         """Validate currently loaded data for conflicts."""
@@ -557,15 +556,14 @@ class AutomationGUI:
                 if len(errors) > 10:
                     error_text += f"\n\n... and {len(errors) - 10} more."
                     
-                messagebox.showerror("Validation Failed", error_text)
+                messagebox.showerror("Định Dạng Sai", error_text)
             else:
                 self.log_message("✓ Validation passed! No conflicts found.")
-                messagebox.showinfo("Validation Passed", 
-                                  f"Successfully validated {len(self.all_data)} records.\n"
-                                  "No Group 1 (Staff 1/3) conflicts found.")
+                messagebox.showinfo("Kiểm Tra Thành Công", 
+                                  "Không tìm thấy xung đột Nhóm 1 (Nhân Viên 1/3).")
         except Exception as e:
             self.log_message(f"✗ Validation error: {str(e)}", "ERROR")
-            messagebox.showerror("Error", f"An error occurred during validation:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Lỗi trong quá trình kiểm tra:\n{str(e)}")
     
     def connect_to_app(self):
         try:
@@ -577,9 +575,8 @@ class AutomationGUI:
         except Exception as e:
             self.conn_status_label.config(text="Status: Connection Failed ✗", foreground="red")
             self.log_message(f"✗ Connection failed: {str(e)}", "ERROR")
-            messagebox.showerror("Connection Error", 
-                               f"Failed to connect to application:\n{str(e)}\n\n"
-                               "Make sure the application is running and the window title matches.")
+            messagebox.showerror("Lỗi Kết Nối", 
+                                f"Không thể kết nối đến ứng dụng:\n{str(e)}")
             
     def update_button_states(self):
         has_data = len(self.all_data) > 0
@@ -616,13 +613,13 @@ class AutomationGUI:
                     error_text += f"\n\n... and {len(errors) - 5} more."
                 
                 error_text += "\n\nPlease fix these conflicts before starting automation."
-                messagebox.showerror("Validation Failed", error_text)
+                messagebox.showerror("Định Dạng Sai", error_text)
                 return
             else:
                 self.log_message("✓ Validation passed! No conflicts found.")
         except Exception as e:
             self.log_message(f"✗ Validation error: {str(e)}", "ERROR")
-            messagebox.showerror("Validation Error", f"An error occurred during validation:\n{str(e)}\n\nPlease fix the errors before starting automation.")
+            messagebox.showerror("Lỗi", f"Lỗi trong quá trình kiểm tra:\n{str(e)}\n\nVui lòng sửa lỗi trước khi bắt đầu tự động.")
             return
             
         self.is_running = True
@@ -667,17 +664,14 @@ class AutomationGUI:
         if self.paused:
             self.pause_btn.config(text="Resume")
             self.log_message("⏸️ Automation Paused - You can now interact with other windows")
-            messagebox.showinfo("Paused", 
-                              "Automation is now paused.\n\n"
-                              "You can safely interact with other windows.\n"
-                              "Click 'Resume' to continue automation.")
+            messagebox.showinfo("Đã Tạm Dừng", 
+                               "Tự động hóa đã tạm dừng. Nhấn 'Tạm Dừng' lại để tiếp tục.")
         else:
             self.pause_btn.config(text="Pause")
             self.log_message("▶️ Automation Resumed")
             # Give user time to focus back on target window
-            messagebox.showinfo("Resuming", 
-                              "Automation will resume in 3 seconds.\n\n"
-                              "Make sure the target application window is visible and focused.")
+            messagebox.showinfo("Tiếp Tục", 
+                               "Đang tiếp tục tự động hóa...")
             self.root.after(3000, lambda: self.log_message("🔄 Automation continuing..."))
         
     def run_automation(self):

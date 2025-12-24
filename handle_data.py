@@ -532,10 +532,13 @@ def validate_all_data(all_data):
             # current start, current end, current desc
             # Overlap if next_start < current_end
             if next_slot[0] < current_slot[1]:
-                # Conflict found
-                msg = (f"Conflict for {staff_full} (Group 1):\n"
-                       f"  - {current_slot[2]}: {current_slot[0].strftime('%H:%M')} - {current_slot[1].strftime('%H:%M')}\n"
-                       f"  - {next_slot[2]}: {next_slot[0].strftime('%H:%M')} - {next_slot[1].strftime('%H:%M')}")
+                # Conflict found - display date and time
+                current_date = current_slot[0].strftime('%d-%m-%Y')
+                next_date = next_slot[0].strftime('%d-%m-%Y')
+                
+                msg = (f"Conflict for {staff_full} (Group 1) on {current_date}:\n"
+                       f"  - {current_slot[2]}: {current_slot[0].strftime('%d-%m-%Y %H:%M')} - {current_slot[1].strftime('%H:%M')}\n"
+                       f"  - {next_slot[2]}: {next_slot[0].strftime('%d-%m-%Y %H:%M')} - {next_slot[1].strftime('%H:%M')}")
                 errors.append(msg)
                 
     return errors

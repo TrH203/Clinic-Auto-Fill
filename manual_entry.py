@@ -48,7 +48,7 @@ class ManualEntryDialog:
         
         # Create dialog window
         self.dialog = tk.Toplevel(parent)
-        title = "Edit Patient Data" if initial_data else "Manual Patient Data Entry"
+        title = "Chỉnh Sửa Dữ Liệu Bệnh Nhân" if initial_data else "Nhập Liệu Bệnh Nhân Thủ Công"
         self.dialog.title(title)
         self.dialog.geometry("620x680")  # Larger to fit all content without scrolling
         self.dialog.resizable(False, False)
@@ -313,17 +313,17 @@ class ManualEntryDialog:
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=row, column=0, columnspan=2, pady=15)
         
-        save_btn = ttk.Button(button_frame, text="💾 Save & Add to Queue", 
+        save_btn = ttk.Button(button_frame, text="💾 Lưu & Thêm vào Hàng Đợi", 
                              command=self.save_entry, style="Accent.TButton")
         save_btn.grid(row=0, column=0, padx=5)
         
         # Only show delete button if editing existing entry
         if self.initial_data and self.on_delete_callback:
-            delete_btn = ttk.Button(button_frame, text="🗑️ Delete", 
+            delete_btn = ttk.Button(button_frame, text="🗑️ Xóa", 
                                    command=self.confirm_delete)
             delete_btn.grid(row=0, column=1, padx=5)
         
-        cancel_btn = ttk.Button(button_frame, text="Cancel", command=self.cancel)
+        cancel_btn = ttk.Button(button_frame, text="Hủy", command=self.cancel)
         cancel_btn.grid(row=0, column=2, padx=5)
         
         # Info Label
@@ -596,16 +596,16 @@ class ManualEntryDialog:
         # Check patient ID - must be exactly 10 digits
         patient_id = self.patient_id_var.get().strip()
         if not patient_id:
-            messagebox.showerror("Validation Error", "Please enter a Patient ID.")
+            messagebox.showerror("Định Dạng Sai", "Vui lòng nhập Mã Bệnh Nhân.")
             return False
         
         if len(patient_id) != 10:
-            messagebox.showerror("Validation Error", "Patient ID must be exactly 10 digits!")
+            messagebox.showerror("Định Dạng Sai", "Mã Bệnh Nhân phải đúng 10 số!")
             self.patient_id_entry.focus_set()
             return False
         
         if not patient_id.isdigit():
-            messagebox.showerror("Validation Error", "Patient ID must contain only numbers!")
+            messagebox.showerror("Định Dạng Sai", "Mã Bệnh Nhân chỉ được chứa số!")
             self.patient_id_entry.focus_set()
             return False
         
@@ -614,7 +614,7 @@ class ManualEntryDialog:
             date_str = self.date_entry.get().strip()
             datetime.strptime(date_str, "%d-%m-%Y")
         except ValueError:
-            messagebox.showerror("Validation Error", "Invalid date format. Use DD-MM-YYYY.")
+            messagebox.showerror("Định Dạng Sai", "Định dạng ngày không hợp lệ. Sử dụng DD-MM-YYYY.")
             return False
         
         # Check time
@@ -624,20 +624,20 @@ class ManualEntryDialog:
             if not (0 <= hour <= 23 and 0 <= minute <= 59):
                 raise ValueError()
         except ValueError:
-            messagebox.showerror("Validation Error", "Invalid time format.")
+            messagebox.showerror("Định Dạng Sai", "Định dạng giờ không hợp lệ.")
             return False
         
         # Check procedures - MUST BE EXACTLY 4
         selected_procedures = [var.get() for var in self.procedure_vars if var.get()]
         if len(selected_procedures) != 4:
-            messagebox.showerror("Validation Error", 
-                               f"Please select EXACTLY 4 procedures.\nCurrently selected: {len(selected_procedures)}")
+            messagebox.showerror("Định Dạng Sai", 
+                               f"Vui lòng chọn CHÍNH XÁC 4 thủ thuật.\nĐã chọn: {len(selected_procedures)}")
             return False
         
         # Check staff
         selected_staff = [var.get().lower() for var in self.staff_vars if var.get()]
         if not selected_staff:
-            messagebox.showerror("Validation Error", "Please select at least one staff member.")
+            messagebox.showerror("Định Dạng Sai", "Vui lòng chọn ít nhất một nhân viên.")
             return False
         
         # Validate staff names exist in config
@@ -646,13 +646,13 @@ class ManualEntryDialog:
         
         for staff in selected_staff:
             if staff not in all_valid_staff:
-                 messagebox.showerror("Validation Error", f"Unknown staff member: {staff}")
+                 messagebox.showerror("Định Dạng Sai", f"Nhân viên không xác định: {staff}")
                  return False
         
         # Check for leave conflicts
         self.validate_staff_leave() # Ensure label is updated
         if self.leave_error_label.cget("text"):
-             messagebox.showerror("Validation Error", "Cannot save: Staff member is on leave.\nPlease check the error message below staff selection.")
+             messagebox.showerror("Định Dạng Sai", "Không thể lưu: Nhân viên đang nghỉ.\nVui lòng kiểm tra thông báo lỗi bên dưới mục chọn nhân viên.")
              return False
 
         return True
@@ -710,7 +710,7 @@ class ManualEntryDialog:
                 if len(conflict_errors) > 5:
                     error_msg += f"\n\n... and {len(conflict_errors) - 5} more."
                 
-                messagebox.showerror("Conflict Validation Failed", error_msg)
+                messagebox.showerror("Định Dạng Sai", error_msg)
                 return
             
             # Save to database
@@ -765,7 +765,7 @@ class ManualEntryDialog:
             self.patient_id_entry.select_range(0, tk.END)
             
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save entry:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Không thể lưu dữ liệu:\n{str(e)}")
     
     def on_close(self):
         """Handle dialog closing to cleanup bindings."""
@@ -790,8 +790,8 @@ class ManualEntryDialog:
         
         patient_id = self.initial_data.get('id', 'Unknown')
         response = messagebox.askyesno(
-            "Confirm Delete",
-            f"Are you sure you want to delete the entry for Patient ID: {patient_id}?\n\nThis action cannot be undone.",
+            "Xác Nhận Xóa",
+            f"Bạn có chắc chắn muốn xóa bản ghi cho Mã Bệnh Nhân: {patient_id}?\n\nHành động này không thể hoàn tác.",
             icon='warning'
         )
         

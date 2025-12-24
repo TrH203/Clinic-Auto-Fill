@@ -52,7 +52,7 @@ class ConfigDialog:
         main_frame.pack(fill="both", expand=True)
         
         # Title
-        title_label = ttk.Label(main_frame, text="Configuration", 
+        title_label = ttk.Label(main_frame, text="Cấu Hình", 
                                font=('Arial', 12, 'bold'))
         title_label.pack(pady=(0, 15))
         
@@ -70,17 +70,17 @@ class ConfigDialog:
         button_frame = ttk.Frame(main_frame)
         button_frame.pack(pady=(15, 0))
         
-        close_btn = ttk.Button(button_frame, text="Close", command=self.dialog.destroy)
+        close_btn = ttk.Button(button_frame, text="Đóng", command=self.dialog.destroy)
         close_btn.pack()
     
     def setup_staff_tab(self, notebook):
         """Setup the staff availability tab."""
         staff_frame = ttk.Frame(notebook, padding="15")
-        notebook.add(staff_frame, text="Staff Availability")
+        notebook.add(staff_frame, text="Trạng Thái Nhân Viên")
         
         # Info label
         info_label = ttk.Label(staff_frame, 
-                              text="Uncheck staff members to disable them from manual entry and automation",
+                              text="Bỏ chọn nhân viên để vô hiệu hóa họ khỏi nhập liệu thủ công và tự động",
                               font=('Arial', 9), foreground="gray", wraplength=500)
         info_label.pack(pady=(0, 15))
         
@@ -133,29 +133,29 @@ class ConfigDialog:
             return frame
 
         # Group 1 List
-        f1 = create_staff_list(lists_container, "Group 1 (Staff 1 & 3)", config.staff_p1_p3)
+        f1 = create_staff_list(lists_container, "Nhóm 1 (Nhân Viên 1 & 3)", config.staff_p1_p3)
         f1.pack(side="left", fill="both", expand=True, padx=(0, 5))
         
         # Group 2 List
-        f2 = create_staff_list(lists_container, "Group 2 (Staff 2)", config.staff_p2)
+        f2 = create_staff_list(lists_container, "Nhóm 2 (Nhân Viên 2)", config.staff_p2)
         f2.pack(side="right", fill="both", expand=True, padx=(5, 0))
         
         # Save button for this tab
-        save_btn = ttk.Button(staff_frame, text="💾 Save", command=self.save_staff_config, 
+        save_btn = ttk.Button(staff_frame, text="💾 Lưu", command=self.save_staff_config, 
                              style="Accent.TButton")
         save_btn.pack(pady=(15, 0))
     
     def setup_leave_tab(self, notebook):
         """Setup the leave schedule tab."""
         leave_frame = ttk.Frame(notebook, padding="15")
-        notebook.add(leave_frame, text="Leave Schedule")
+        notebook.add(leave_frame, text="Lịch Nghỉ")
         
         # Add leave section
-        add_frame = ttk.LabelFrame(leave_frame, text="Add Leave", padding="10")
+        add_frame = ttk.LabelFrame(leave_frame, text="Thêm Lịch Nghỉ", padding="10")
         add_frame.pack(fill="x", pady=(0, 15))
         
         # Doctor selection
-        ttk.Label(add_frame, text="Doctor:").grid(row=0, column=0, sticky=tk.W, pady= 5)
+        ttk.Label(add_frame, text="Bác Sĩ:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.leave_staff_var = tk.StringVar()
         staff_combo = ttk.Combobox(add_frame, textvariable=self.leave_staff_var, 
                                    values=sorted([f"{v} ({k})" for k, v in config.map_ys_bs.items()]),
@@ -163,7 +163,7 @@ class ConfigDialog:
         staff_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         
         # Date
-        ttk.Label(add_frame, text="Date:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(add_frame, text="Ngày:").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.leave_date_var = tk.StringVar(value=datetime.now().strftime("%d-%m-%Y"))
         date_entry = ttk.Entry(add_frame, textvariable=self.leave_date_var, width=32)
         date_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
@@ -171,7 +171,7 @@ class ConfigDialog:
             row=1, column=2, padx=(5, 0))
         
         # Session
-        ttk.Label(add_frame, text="Session:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        ttk.Label(add_frame, text="Buổi:").grid(row=2, column=0, sticky=tk.W, pady=5)
         self.leave_session_var = tk.StringVar(value="morning")
         session_frame = ttk.Frame(add_frame)
         session_frame.grid(row=2, column=1, sticky=tk.W, pady=5, padx=(10, 0))
@@ -183,19 +183,19 @@ class ConfigDialog:
                        value="full_day").pack(side="left")
         
         # Reason
-        ttk.Label(add_frame, text="Reason:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        ttk.Label(add_frame, text="Lý Do:").grid(row=3, column=0, sticky=tk.W, pady=5)
         self.leave_reason_var = tk.StringVar()
         reason_entry = ttk.Entry(add_frame, textvariable=self.leave_reason_var, width=32)
         reason_entry.grid(row=3, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         
         # Add button
-        add_btn = ttk.Button(add_frame, text="Add Leave", command=self.add_leave)
+        add_btn = ttk.Button(add_frame, text="Thêm Lịch Nghỉ", command=self.add_leave)
         add_btn.grid(row=4, column=1, pady=(10, 0))
         
         add_frame.columnconfigure(1, weight=1)
         
         # Current leaves section
-        leaves_frame = ttk.LabelFrame(leave_frame, text="Current Leaves", padding="10")
+        leaves_frame = ttk.LabelFrame(leave_frame, text="Danh Sách Lịch Nghỉ", padding="10")
         leaves_frame.pack(fill="both", expand=True)
         
         # Treeview for leaves
@@ -222,7 +222,7 @@ class ConfigDialog:
         tree_scroll.pack(side="right", fill="y")
         
         # Delete button
-        delete_btn = ttk.Button(leaves_frame, text="Delete Selected", command=self.delete_leave)
+        delete_btn = ttk.Button(leaves_frame, text="Xóa Đã Chọn", command=self.delete_leave)
         delete_btn.pack(pady=(10, 0))
         
         # Load leaves
@@ -234,7 +234,7 @@ class ConfigDialog:
             # Validate inputs
             staff_selection = self.leave_staff_var.get()
             if not staff_selection:
-                messagebox.showerror("Error", "Please select a doctor")
+                messagebox.showerror("Lỗi", "Vui lòng chọn bác sĩ")
                 return
             
             # Extract short name from selection "Full Name (short)"
@@ -246,7 +246,7 @@ class ConfigDialog:
                 date_obj = datetime.strptime(date_str, "%d-%m-%Y")
                 db_date = date_obj.strftime("%Y-%m-%d")
             except ValueError:
-                messagebox.showerror("Error", "Invalid date format. Use DD-MM-YYYY")
+                messagebox.showerror("Lỗi", "Định dạng ngày không hợp lệ. Sử dụng DD-MM-YYYY")
                 return
             
             session = self.leave_session_var.get()
@@ -261,25 +261,25 @@ class ConfigDialog:
             # Clear form
             self.leave_reason_var.set("")
             
-            messagebox.showinfo("Success", "Leave added successfully")
+            messagebox.showinfo("Thành Công", "Thêm lịch nghỉ thành công")
             
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to add leave:\n{str(e)}")
+            messagebox.showerror("Lỗi", f"Không thể thêm lịch nghỉ:\n{str(e)}")
     
     def delete_leave(self):
         """Delete selected leave."""
         selection = self.leave_tree.selection()
         if not selection:
-            messagebox.showwarning("Warning", "Please select a leave to delete")
+            messagebox.showwarning("Cảnh Báo", "Vui lòng chọn lịch nghỉ để xóa")
             return
         
         item = selection[0]
         leave_id = self.leave_tree.item(item, "values")[4]  # Hidden column
         
-        if messagebox.askyesno("Confirm", "Delete this leave record?"):
+        if messagebox.askyesno("Xác Nhận", "Xóa bản ghi lịch nghỉ này?"):
             delete_doctor_leave(int(leave_id))
             self.refresh_leaves()
-            messagebox.showinfo("Success", "Leave deleted")
+            messagebox.showinfo("Thành Công", "Lịch nghỉ đã xóa")
     
     def refresh_leaves(self):
         """Refresh the leave tree with current data."""
@@ -326,7 +326,7 @@ class ConfigDialog:
         # Save to database
         set_disabled_staff(disabled)
         
-        messagebox.showinfo("Success", f"Configuration saved!\n{len(disabled)} staff member(s) disabled.")
+        messagebox.showinfo("Thành Công", f"Cấu hình đã lưu!\n{len(disabled)} nhân viên đã vô hiệu hóa.")
     
     def show(self):
         """Show the dialog and wait for it to close."""
