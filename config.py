@@ -84,31 +84,33 @@ staff_p2 = load_staff_config("staff_group_2.json")
 map_ys_bs = {**staff_p1_p3, **staff_p2}
 
 # If files didn't exist or were empty, use default (fail-safe)
-if not map_ys_bs:
-    map_ys_bs = {
-        "hiền": "Trần Thị Thu Hiền",
-        "hoà": "Trần Thị Diệu Hoà",
-        "hòa": "Trần Thị Diệu Hoà",
-        "anh": "Nguyễn Duy Anh",
+# IMPORTANT: Keep groups SEPARATE to avoid duplication in UI
+if not staff_p1_p3:
+    staff_p1_p3 = {
         "duy": "Nguyễn Văn Duy",
         "lya": "H' Lya Niê",
-        "thuận": "Võ Thị Bích Thuận",
         "quân": "Lê Văn Quân",
         "khoái": "Nguyễn Công Khoái",
         "thịnh": "Nguyễn Văn Thịnh",
-        "quang": "Đinh Văn Quang",
         "hạnh": "Nguyễn Hữu Hạnh",
         "diệu": "Nguyễn Thị Diệu",
         "lực": "Lê Đức Lực",
-        "nguyện": "Võ Thị Như Nguyện",
-        "trị": "Bùi Tá Việt Trị",  # BS
         "thơ": "Lê Thị Ngọc Thơ",
         "nhẹ": "H' Nhẹ Niê",
         "trúc": "Lê Ngọc Trúc",
     }
-    # Also populate groups if they were empty
-    staff_p1_p3 = map_ys_bs.copy()
-    staff_p2 = map_ys_bs.copy()
+
+if not staff_p2:
+    staff_p2 = {
+        "hiền": "Trần Thị Thu Hiền",
+        "hòa": "Trần Thị Diệu Hòa",
+        "anh": "Nguyễn Duy Anh",
+        "trị": "Bùi Tá Việt Trị",
+    }
+
+# Rebuild merged map if fallback was used
+if not map_ys_bs:
+    map_ys_bs = {**staff_p1_p3, **staff_p2}
 
 # # List of disabled/excluded staff members (lowercase short names as keys in map_ys_bs)
 # # Staff in this list will not appear in manual entry and will cause errors during automation
