@@ -842,7 +842,7 @@ class AutomationGUI:
                         (f"Setting end date: {data['ngay']}", lambda: tool.type_ngay_ket_thuc(ngay=data["ngay"])),
                         (f"Entering ID: {current_id}", lambda: tool.type_id(id=data["id"])),
                         ("Clicking reload", lambda: tool.click_reload()),
-                        ("Waiting for reload", lambda: time.sleep(3.0)),
+                        # ("Waiting for reload", lambda: time.sleep(3.0)),
                         ("Selecting patient row", lambda: tool._double_click_position(coords=PATIENT_ROW)),
                         ("Filling medical procedure data", lambda: tool.fill_thu_thuat_data(data["thu_thuats"], mode=data["isFirst"])),
                         ("Clicking next", lambda: tool._click_position(coords=TIEP))
