@@ -9,6 +9,8 @@ import time
 import os
 import sys
 import webbrowser
+import ctypes
+import platform
 from config_dialog import ConfigDialog
 from database import initialize_database, load_manual_entries_from_db, get_window_title, set_window_title
 from pywinauto import Application, Desktop
@@ -961,7 +963,32 @@ class AutomationGUI:
         except:
             self.root.destroy()
 
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
 def main():
+    # Check for Admin privileges on Windows
+    if platform.system() == "Windows":
+        if not is_admin():
+            # Re-run the program with admin rights
+            try:
+                ctypes.windll.shell32.ShellExecuteW(
+                    None, 
+                    "runas", 
+                    sys.executable, 
+                    " ".join(sys.argv), 
+                    None, 
+                    1
+                )
+                return  # Exit current instance
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to request facilitator privileges: {e}")
+                return
+
     initialize_database()
     root = tk.Tk()
     app = AutomationGUI(root)
