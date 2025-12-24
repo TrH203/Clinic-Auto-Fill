@@ -10,7 +10,8 @@ import os
 import sys
 import webbrowser
 from config_dialog import ConfigDialog
-from database import initialize_database, load_manual_entries_from_db
+from database import initialize_database, load_manual_entries_from_db, get_window_title, set_window_title
+from pywinauto import Application, Desktop
 from manual_entry import ManualEntryDialog
 from config import PATIENT_ROW, TIEP
 
@@ -143,13 +144,27 @@ class AutomationGUI:
         conn_frame = ttk.LabelFrame(main_frame, text="Application Connection", padding="10")
         conn_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
-        self.conn_status_label = ttk.Label(conn_frame, text="Trạng Thái: Chưa Kết Nối", 
-                                          foreground="red")
-        self.conn_status_label.grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        # Target App Label
+        current_title = get_window_title()
+        short_title = current_title if len(current_title) < 40 else current_title[:37] + "..."
+        self.target_app_label = ttk.Label(conn_frame, text=f"Target: {short_title}", 
+                                         foreground="blue", width=45)
+        self.target_app_label.grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
         
-        connect_btn = ttk.Button(conn_frame, text="Kết Nối Ứng Dụng", 
-                               command=self.connect_to_app)
-        connect_btn.grid(row=0, column=1)
+        # Select App Button
+        select_app_btn = ttk.Button(conn_frame, text="🔍 Chọn Cửa Sổ", 
+                                  command=self.select_target_window)
+        select_app_btn.grid(row=0, column=1, padx=(0, 5))
+        
+        # Status Label
+        self.conn_status_label = ttk.Label(conn_frame, text="Status: Disconnected", 
+                                          foreground="red")
+        self.conn_status_label.grid(row=0, column=3, padx=(10, 10))
+        
+        # Connect Button
+        connect_btn = ttk.Button(conn_frame, text="Kết Nối", 
+                                command=self.connect_to_app)
+        connect_btn.grid(row=0, column=2)
         
         # Control section
         control_frame = ttk.LabelFrame(main_frame, text="Controls", padding="10")
@@ -567,17 +582,132 @@ class AutomationGUI:
             messagebox.showerror("Lỗi", f"Lỗi trong quá trình kiểm tra:\n{str(e)}")
     
     def connect_to_app(self):
+        target_title = get_window_title()
         try:
-            self.app = Application(backend="uia").connect(title_re="User: Trần Thị Thu Hiền")
-            self.dlg = self.app.window(title_re="User: Trần Thị Thu Hiền")
+            # Connect to existing application by title
+            # Using backend="uia" as before
+            self.app = Application(backend="uia").connect(title=target_title)
+            self.dlg = self.app.window(title=target_title)
+            
+            # Verify window exists
+            if not self.dlg.exists():
+                raise Exception("Window found but handle is invalid.")
+                
             self.conn_status_label.config(text="Status: Connected ✓", foreground="green")
-            self.log_message("✓ Connected to application successfully")
+            self.log_message(f"✓ Connected to '{target_title}' successfully")
             self.update_button_states()
         except Exception as e:
             self.conn_status_label.config(text="Status: Connection Failed ✗", foreground="red")
-            self.log_message(f"✗ Connection failed: {str(e)}", "ERROR")
+            self.log_message(f"✗ Connection failed to '{target_title}': {str(e)}", "ERROR")
             messagebox.showerror("Lỗi Kết Nối", 
-                                f"Không thể kết nối đến ứng dụng:\n{str(e)}")
+                                f"Không thể kết nối đến ứng dụng '{target_title}':\n{str(e)}\n\nVui lòng đảm bảo ứng dụng đang mở và đúng tên.")
+            
+    def select_target_window(self):
+        """Open dialog to select target window."""
+        try:
+            # Get list of windows using pywinauto Desktop
+            desktop = Desktop(backend="uia")
+            windows = desktop.windows()
+            
+            win_list = []
+            for w in windows:
+                try:
+                    txt = w.window_text()
+                    if txt and txt.strip():
+                        win_list.append(txt)
+                except:
+                    pass
+            
+            # Sort and remove duplicates
+            win_list = sorted(list(set(win_list)))
+            
+            if not win_list:
+                messagebox.showinfo("Thông Báo", "Không tìm thấy cửa sổ nào.")
+                return
+
+            # Create selection dialog
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Chọn Cửa Sổ Ứng Dụng")
+            dialog.geometry("600x500")
+            
+            # Make modal
+            dialog.transient(self.root)
+            dialog.grab_set()
+            
+            # Center dialog
+            self.root.update_idletasks()
+            x = self.root.winfo_x() + (self.root.winfo_width() - 600) // 2
+            y = self.root.winfo_y() + (self.root.winfo_height() - 500) // 2
+            dialog.geometry(f"+{x}+{y}")
+            
+            # Header
+            ttk.Label(dialog, text="Chọn ứng dụng cần tự động hóa:", 
+                     font=('Arial', 10, 'bold')).pack(pady=10)
+            
+            # Search
+            search_frame = ttk.Frame(dialog, padding=10)
+            search_frame.pack(fill='x')
+            ttk.Label(search_frame, text="Tìm kiếm:").pack(side='left')
+            
+            search_var = tk.StringVar()
+            search_entry = ttk.Entry(search_frame, textvariable=search_var)
+            search_entry.pack(side='left', fill='x', expand=True, padx=5)
+            
+            # Listbox with scrollbar
+            list_frame = ttk.Frame(dialog, padding=10)
+            list_frame.pack(fill='both', expand=True)
+            
+            scrollbar = ttk.Scrollbar(list_frame)
+            scrollbar.pack(side='right', fill='y')
+            
+            lb = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, selectmode='single', font=('Arial', 10))
+            lb.pack(side='left', fill='both', expand=True)
+            scrollbar.config(command=lb.yview)
+            
+            # Populate list
+            for w in win_list:
+                lb.insert('end', w)
+                
+            # Filter function
+            def filter_list(*args):
+                search_term = search_var.get().lower()
+                lb.delete(0, 'end')
+                for w in win_list:
+                    if search_term in w.lower():
+                        lb.insert('end', w)
+            
+            search_var.trace('w', filter_list)
+            
+            def confirm_selection():
+                selection = lb.curselection()
+                if not selection:
+                    messagebox.showwarning("Chưa Chọn", "Vui lòng chọn một cửa sổ.")
+                    return
+                
+                selected_title = lb.get(selection[0])
+                
+                # Save to database
+                set_window_title(selected_title)
+                
+                # Update UI
+                short_title = selected_title if len(selected_title) < 40 else selected_title[:37] + "..."
+                self.target_app_label.config(text=f"Target: {short_title}")
+                self.log_message(f"✓ Target application updated to: {selected_title}")
+                
+                dialog.destroy()
+                
+            # Buttons
+            btn_frame = ttk.Frame(dialog, padding=10)
+            btn_frame.pack(fill='x')
+            
+            ttk.Button(btn_frame, text="Hủy", command=dialog.destroy).pack(side='right', padx=5)
+            ttk.Button(btn_frame, text="Chọn", command=confirm_selection).pack(side='right', padx=5)
+            
+            # Bind double click
+            lb.bind('<Double-Button-1>', lambda e: confirm_selection())
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể lấy danh sách cửa sổ:\n{str(e)}")
             
     def update_button_states(self):
         has_data = len(self.all_data) > 0

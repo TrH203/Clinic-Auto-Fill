@@ -127,6 +127,7 @@ def get_disabled_staff():
     return []
 
 
+
 def set_disabled_staff(disabled_list):
     """Save list of disabled staff to database."""
     conn = sqlite3.connect(DATABASE_FILE)
@@ -142,6 +143,34 @@ def set_disabled_staff(disabled_list):
     
     conn.commit()
     conn.close()
+
+
+def get_window_title():
+    """Get the target application window title."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM app_settings WHERE key = 'window_title'")
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return row[0]
+    return "User: Trần Thị Thu Hiền"  # Default value
+
+
+def set_window_title(title):
+    """Save the target application window title."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        INSERT OR REPLACE INTO app_settings (key, value)
+        VALUES ('window_title', ?)
+    """, (title,))
+    
+    conn.commit()
+    conn.close()
+
 
 
 # ===== Doctor Leave Functions =====
