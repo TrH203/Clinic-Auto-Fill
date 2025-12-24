@@ -52,7 +52,7 @@ def extract_text(x, y):
     text = pytesseract.image_to_string(img, lang='vie')
 
     if text:
-        return remove_special_chars(text.strip().replace("thủy", "thuỷ"))
+        return remove_special_chars(text.strip().replace("thuỷ", "thủy"))
     else:
         raise "ERROR in extract text"
 
