@@ -62,16 +62,32 @@ def extract_text(x, y):
 # -----------------------------
 def load_csv_auto(source):
     """
-    Tự nhận dạng file CSV kiểu 1 hay kiểu 2
+    Tự nhận dạng file CSV kiểu 1 hay kiểu 2, và xử lý encoding
     """
-    try:
-        df = pd.read_csv(source, header=None, delimiter=';')
-        if df.shape[1] > 1:
-            return df   # file 2
-    except:
-        pass
-
-    return pd.read_csv(source, header=None)  # file 1 mặc định
+    # Prioritize encodings that support Vietnamese
+    # utf-8-sig handles BOM produced by Notepad/Excel
+    # cp1258 is Windows encoding for Vietnamese
+    encodings = ['utf-8-sig', 'utf-8', 'utf-16', 'cp1258']
+    
+    for encoding in encodings:
+        try:
+            # Try type 2 (delimiter ';')
+            df = pd.read_csv(source, header=None, delimiter=';', encoding=encoding)
+            if df.shape[1] > 1:
+                return df
+                
+            # Try type 1 (default delimiter)
+            # Ensure we rewind the file or read again - pd.read_csv reads from path so it's fine
+            df = pd.read_csv(source, header=None, encoding=encoding)
+            # If successful return immediately
+            return df
+        except UnicodeDecodeError:
+            continue
+        except Exception:
+            continue
+            
+    # If all fail, try one last time with default to raise standard error or let it crash
+    return pd.read_csv(source, header=None)
 
 
 # -----------------------------

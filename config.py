@@ -133,8 +133,20 @@ def load_staff_config(filename):
         current_dir = os.path.dirname(os.path.abspath(__file__))
         file_path = os.path.join(current_dir, filename)
         if os.path.exists(file_path):
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
+            # Try multiple encodings
+            for enc in ['utf-8', 'utf-8-sig', 'cp1252', 'cp1258']:
+                try:
+                    with open(file_path, 'r', encoding=enc) as f:
+                        return json.load(f)
+                except UnicodeDecodeError:
+                    continue
+                except json.JSONDecodeError:
+                    continue
+            
+            # If we get here, no encoding worked or file is not valid JSON
+            print(f"Warning: Could not decode {filename} with any standard encoding.")
+            return {}
+            
         return {}
     except Exception as e:
         print(f"Error loading {filename}: {e}")
