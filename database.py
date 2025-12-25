@@ -172,6 +172,34 @@ def set_window_title(title):
     conn.close()
 
 
+def get_arrow_mode_setting():
+    """Get arrow mode setting (True/False)."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM app_settings WHERE key = 'arrow_mode'")
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        return row[0] == '1'
+    return False
+
+def set_arrow_mode_setting(enabled):
+    """Save arrow mode setting."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    value = '1' if enabled else '0'
+    
+    cursor.execute("""
+        INSERT OR REPLACE INTO app_settings (key, value)
+        VALUES ('arrow_mode', ?)
+    """, (value,))
+    
+    conn.commit()
+    conn.close()
+
+
 
 # ===== Doctor Leave Functions =====
 

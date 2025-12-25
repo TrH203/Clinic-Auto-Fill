@@ -12,7 +12,7 @@ import webbrowser
 import ctypes
 import platform
 from config_dialog import ConfigDialog
-from database import initialize_database, load_manual_entries_from_db, get_window_title, set_window_title
+from database import initialize_database, load_manual_entries_from_db, get_window_title, set_window_title, get_arrow_mode_setting, set_arrow_mode_setting
 from pywinauto import Application, Desktop
 from manual_entry import ManualEntryDialog
 from config import PATIENT_ROW, TIEP
@@ -213,7 +213,8 @@ class AutomationGUI:
         step_delay_spinbox.grid(row=0, column=3)
         
         # Arrow Date Checkbox
-        self.arrow_date_var = tk.BooleanVar(value=False)
+        self.arrow_date_var = tk.BooleanVar(value=get_arrow_mode_setting())
+        self.arrow_date_var.trace('w', lambda *args: set_arrow_mode_setting(self.arrow_date_var.get()))
         arrow_date_check = ttk.Checkbutton(delay_frame, text="Ngày Mũi Tên", variable=self.arrow_date_var)
         arrow_date_check.grid(row=0, column=4, padx=(10, 0))
         
@@ -851,7 +852,7 @@ class AutomationGUI:
                         ("Clicking reload", lambda: tool.click_reload()),
                         # ("Waiting for reload", lambda: time.sleep(3.0)),
                         ("Selecting patient row", lambda: tool._double_click_position(coords=PATIENT_ROW)),
-                        ("Filling medical procedure data", lambda: tool.fill_thu_thuat_data(data["thu_thuats"], mode=data["isFirst"])),
+                        ("Filling medical procedure data", lambda: tool.fill_thu_thuat_data(data["thu_thuats"], mode=data["isFirst"], arrow_mode=self.arrow_date_var.get())),
                         ("Clicking next", lambda: tool._click_position(coords=TIEP))
                     ]
                     

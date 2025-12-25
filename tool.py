@@ -79,29 +79,22 @@ class Tool:
 
     
     def _type_date_arrow(self, ngay: str):
-        # Format: dd-mm-yyyy or similar. Split by any non-digit.
-        # However, user example is 12-02-2025. 
-        # Logic: Type day -> Right -> Type month -> Right -> Type year
+        # User format example: 16-12-2025{SPACE}09:05
+        # Logic: 16 -> 12 -> 2025 -> 09 -> 05
         
-        parts = ngay.replace('/', '-').replace('.', '-').split('-')
-        if len(parts) >= 3:
-            day, month, year = parts[0], parts[1], parts[2]
-            
-            # Type Day
-            self._type_text(day)
-            send_keys("{RIGHT}")
-            time.sleep(0.1)
-            
-            # Type Month
-            self._type_text(month)
-            send_keys("{RIGHT}")
-            time.sleep(0.1)
-            
-            # Type Year
-            self._type_text(year)
-        else:
-            # Fallback if parsing fails
-            self._type_text(ngay)
+        # Replace common separators with a standard one
+        clean_ngay = ngay.replace('{SPACE}', '-').replace(' ', '-').replace('/', '-').replace('.', '-').replace(':', '-')
+        parts = clean_ngay.split('-')
+        
+        # Filter empty parts just in case
+        parts = [p for p in parts if p]
+        
+        for i, part in enumerate(parts):
+            self._type_text(part)
+            # Press right arrow if it's not the last part
+            if i < len(parts) - 1:
+                send_keys("{RIGHT}")
+                time.sleep(0.1)
     
     def type_ngay_bat_dau(self, ngay: str, arrow_mode: bool = False):
         # Nhap ngay bat dau
@@ -122,7 +115,7 @@ class Tool:
         self._click_position(coords=ID_BOX)
         self._type_text(id)
 
-    def fill_thu_thuat_data(self, data: list, mode = True):
+    def fill_thu_thuat_data(self, data: list, mode = True, arrow_mode: bool = False):
         for idx in range(4):
             
             if mode == True:
@@ -164,15 +157,24 @@ class Tool:
             # Click Ngay CD:
             # print("Ngay CD", info["Ngay CD"])
             self._click_position(coords=NGAY_CD, wait=0.1)
-            self._type_text(info["Ngay CD"])
+            if arrow_mode:
+                self._type_date_arrow(info["Ngay CD"])
+            else:
+                self._type_text(info["Ngay CD"])
 
             # Click Ngay BDTH
             self._click_position(coords=NGAY_BDTH, wait=0.1)
-            self._type_text(info["Ngay BD TH"], wait=0.1)
+            if arrow_mode:
+                self._type_date_arrow(info["Ngay BD TH"])
+            else:
+                self._type_text(info["Ngay BD TH"], wait=0.1)
             
             # Click Ngay KQ
             self._click_position(coords=NGAY_KQ, wait=0.1)
-            self._type_text(info["Ngay KQ"])
+            if arrow_mode:
+                self._type_date_arrow(info["Ngay KQ"])
+            else:
+                self._type_text(info["Ngay KQ"])
             
             # # Click CCHN
             self._click_position(coords=CCHN, wait=0.1)
