@@ -212,6 +212,11 @@ class AutomationGUI:
                                         textvariable=self.step_delay_var, width=10)
         step_delay_spinbox.grid(row=0, column=3)
         
+        # Arrow Date Checkbox
+        self.arrow_date_var = tk.BooleanVar(value=False)
+        arrow_date_check = ttk.Checkbutton(delay_frame, text="Ngày Mũi Tên", variable=self.arrow_date_var)
+        arrow_date_check.grid(row=0, column=4, padx=(10, 0))
+        
         # Progress section
         progress_frame = ttk.Frame(control_frame)
         progress_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
@@ -840,8 +845,8 @@ class AutomationGUI:
                     # Execute automation steps with delays and emergency stop checks
                     steps = [
                         ("Setting 'Cho thuc hien' mode", lambda: tool.click_thuc_hien(mode=data["isFirst"])),
-                        (f"Setting start date: {data['ngay']}", lambda: tool.type_ngay_bat_dau(ngay=data["ngay"])),
-                        (f"Setting end date: {data['ngay']}", lambda: tool.type_ngay_ket_thuc(ngay=data["ngay"])),
+                        (f"Setting start date: {data['ngay']}", lambda: tool.type_ngay_bat_dau(ngay=data["ngay"], arrow_mode=self.arrow_date_var.get())),
+                        (f"Setting end date: {data['ngay']}", lambda: tool.type_ngay_ket_thuc(ngay=data["ngay"], arrow_mode=self.arrow_date_var.get())),
                         (f"Entering ID: {current_id}", lambda: tool.type_id(id=data["id"])),
                         ("Clicking reload", lambda: tool.click_reload()),
                         # ("Waiting for reload", lambda: time.sleep(3.0)),

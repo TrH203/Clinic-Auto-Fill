@@ -78,14 +78,45 @@ class Tool:
             self._click_position(coords=DA_THUC_HIEN)
 
     
-    def type_ngay_bat_dau(self, ngay: str):
+    def _type_date_arrow(self, ngay: str):
+        # Format: dd-mm-yyyy or similar. Split by any non-digit.
+        # However, user example is 12-02-2025. 
+        # Logic: Type day -> Right -> Type month -> Right -> Type year
+        
+        parts = ngay.replace('/', '-').replace('.', '-').split('-')
+        if len(parts) >= 3:
+            day, month, year = parts[0], parts[1], parts[2]
+            
+            # Type Day
+            self._type_text(day)
+            send_keys("{RIGHT}")
+            time.sleep(0.1)
+            
+            # Type Month
+            self._type_text(month)
+            send_keys("{RIGHT}")
+            time.sleep(0.1)
+            
+            # Type Year
+            self._type_text(year)
+        else:
+            # Fallback if parsing fails
+            self._type_text(ngay)
+    
+    def type_ngay_bat_dau(self, ngay: str, arrow_mode: bool = False):
         # Nhap ngay bat dau
         self._click_position(coords=NGAY_BAT_DAU)
-        self._type_text(ngay)
+        if arrow_mode:
+            self._type_date_arrow(ngay)
+        else:
+            self._type_text(ngay)
 
-    def type_ngay_ket_thuc(self, ngay: str):
+    def type_ngay_ket_thuc(self, ngay: str, arrow_mode: bool = False):
         self.dlg.click_input(coords=NGAY_KET_THUC)
-        self._type_text(ngay)
+        if arrow_mode:
+            self._type_date_arrow(ngay)
+        else:
+            self._type_text(ngay)
 
     def type_id(self, id:str):
         self._click_position(coords=ID_BOX)
