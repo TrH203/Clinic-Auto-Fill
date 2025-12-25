@@ -31,6 +31,13 @@ class Tool:
 
         send_keys(text)
         time.sleep(wait)
+
+
+
+    def _type_text_pure(self, text:str, wait=0.1):
+        send_keys(text)
+        time.sleep(wait)
+    
     def _type_text_no_telex(self, text:str, wait=0.1):
         pyperclip.copy(text)
         send_keys("^v")
@@ -90,7 +97,7 @@ class Tool:
         parts = [p for p in parts if p]
         
         for i, part in enumerate(parts):
-            self._type_text(part)
+            self._type_text_pure(part)
             # Press right arrow if it's not the last part
             if i < len(parts) - 1:
                 send_keys("{RIGHT}")
