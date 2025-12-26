@@ -32,6 +32,8 @@ A desktop automation application for medical clinic appointment data entry with 
 1. Download the latest release from [GitHub Releases](https://github.com/TrH203/Clinic-Auto-Fill/releases)
 2. Run `ClinicAutoTool.exe`
 3. The application will auto-update when new versions are available
+4. Install https://github.com/UB-Mannheim/tesseract/wiki
+
 
 ### Usage
 
