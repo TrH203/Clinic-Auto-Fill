@@ -179,7 +179,7 @@ if not staff_p1_p3:
 if not staff_p2:
     staff_p2 = {
         "hiền": "Trần Thị Thu Hiền",
-        "hòa": "Trần Thị Diệu Hòa",
+        "hoà": "Trần Thị Diệu Hoà",
         "anh": "Nguyễn Duy Anh",
         "trị": "Bùi Tá Việt Trị",
     }
