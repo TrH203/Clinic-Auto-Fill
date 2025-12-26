@@ -88,7 +88,7 @@ class Tool:
     def _type_date_arrow(self, ngay: str):
         # User format example: 16-12-2025{SPACE}09:05
         # Logic: 16 -> 12 -> 2025 -> 09 -> 05
-        
+        send_keys("^a")
         # Replace common separators with a standard one
         clean_ngay = ngay.replace('{SPACE}', '-').replace(' ', '-').replace('/', '-').replace('.', '-').replace(':', '-')
         parts = clean_ngay.split('-')
