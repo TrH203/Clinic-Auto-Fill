@@ -817,6 +817,23 @@ class AutomationGUI:
         try:
             self.emergency_stop_flag = False
             
+            # Ensure target window is focused
+            if self.dlg:
+                try:
+                    # Check if minimized
+                    if self.dlg.get_show_state() == 2:
+                        self.dlg.restore()
+                    self.dlg.set_focus()
+                    self.log_message("✓ Activated target window")
+                except Exception as e:
+                    self.log_message(f"⚠ Could not focus window: {e}")
+            
+            self.log_message("⏳ Starting in 2 seconds...")
+            for k in range(2, 0, -1):
+                if not self.is_running or self.emergency_stop_flag:
+                    return
+                time.sleep(1)
+            
             for i, data in enumerate(self.all_data):
                 # Check for emergency stop first
                 if self.emergency_stop_flag or not self.is_running:
@@ -850,10 +867,10 @@ class AutomationGUI:
                         (f"Setting end date: {data['ngay']}", lambda: tool.type_ngay_ket_thuc(ngay=data["ngay"], arrow_mode=self.arrow_date_var.get())),
                         (f"Entering ID: {current_id}", lambda: tool.type_id(id=data["id"])),
                         ("Clicking reload", lambda: tool.click_reload()),
-                        # ("Waiting for reload", lambda: time.sleep(3.0)),
                         ("Selecting patient row", lambda: tool._double_click_position(coords=PATIENT_ROW)),
                         ("Filling medical procedure data", lambda: tool.fill_thu_thuat_data(data["thu_thuats"], mode=data["isFirst"], arrow_mode=self.arrow_date_var.get())),
-                        ("Clicking next", lambda: tool._click_position(coords=TIEP))
+                        ("Clicking next", lambda: tool._click_position(coords=TIEP)),
+                        ("Waiting for reload", lambda: time.sleep(1.0)),
                     ]
                     
                     for step_name, step_func in steps:
