@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import config
 from config import thu_thuat_dur_mapper, map_ys_bs, thu_thuat_ability_mapper
 from handle_data import create_data_from_manual_input, validate_all_data
-from database import save_manual_entry_to_db, get_disabled_staff, check_staff_available, delete_old_manual_entries
+from database import save_manual_entry_to_db, get_disabled_staff, check_staff_available, delete_old_manual_entries, get_last_used_procedures, set_last_used_procedures
 import unicodedata
 
 def remove_accents(input_str):
@@ -179,6 +179,11 @@ class ManualEntryDialog:
         # Get available procedures
         self.available_procedures = sorted(list(thu_thuat_dur_mapper.keys()))
         
+        # Get last used procedures if not editing existing entry
+        last_procedures = []
+        if not self.initial_data:
+            last_procedures = get_last_used_procedures()
+        
         # Create 4 procedure dropdowns
         self.procedure_vars = []
         self.procedure_combos = []  # Track combobox widgets
@@ -192,6 +197,11 @@ class ManualEntryDialog:
             # Auto-focus next on selection
             dropdown.bind('<<ComboboxSelected>>', lambda e, idx=i: self.on_procedure_selected(e, idx))
             # Manual open with Down arrow key only (no auto-open)
+            
+            # Set default value from last used procedures if available
+            if not self.initial_data and i < len(last_procedures) and last_procedures[i]:
+                var.set(last_procedures[i])
+            
             self.procedure_vars.append(var)
             self.procedure_combos.append(dropdown)
             self.all_comboboxes.append(dropdown)
@@ -737,16 +747,16 @@ class ManualEntryDialog:
             # Remember this date for next entry
             ManualEntryDialog.last_used_date = date_str
             
+            # Remember procedures for next entry
+            set_last_used_procedures(procedures)
+            
             # Continuous Entry: Clear form instead of closing
             # Keep ID and select all for easy overwrite
             # self.patient_id_var.set("")
             
-            # Clear Procedures
-            for var in self.procedure_vars:
-                var.set("")
-            # Reset procedure options
-            self.update_procedure_options()
-                
+            # Keep procedures filled (they were just saved as defaults)
+            # No need to clear them - they will be the default for next entry
+            
             # Clear Staff
             for var in self.staff_vars:
                 var.set("")

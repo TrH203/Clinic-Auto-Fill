@@ -407,7 +407,43 @@ def set_arrow_mode_setting(enabled):
 
 
 
+def get_last_used_procedures():
+    """Get the last used procedures from database."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT value FROM app_settings WHERE key = 'last_used_procedures'")
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row:
+        import json
+        return json.loads(row[0])
+    return []  # Return empty list if no previous procedures
+
+
+def set_last_used_procedures(procedures_list):
+    """Save the last used procedures to database.
+    
+    Args:
+        procedures_list: List of procedure names (e.g., ["điện", "thuỷ", "laser", "kim"])
+    """
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    import json
+    value = json.dumps(procedures_list, ensure_ascii=False)
+    
+    cursor.execute("""
+        INSERT OR REPLACE INTO app_settings (key, value)
+        VALUES ('last_used_procedures', ?)
+    """, (value,))
+    
+    conn.commit()
+    conn.close()
+
+
 # ===== Doctor Leave Functions =====
+
 
 def add_doctor_leave(staff_short_name, leave_date, session, reason=""):
     """Add a doctor leave record."""
