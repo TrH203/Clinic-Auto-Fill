@@ -1,15 +1,33 @@
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
-from config import bs_mapper, thu_thuat_ability_mapper, thu_thuat_dur_mapper, map_ys_bs, staff_p1_p3, staff_p2
-from pywinauto.uia_element_info import UIAElementInfo
-import pyautogui
+from config import bs_mapper, bs_mapper_new, thu_thuat_ability_mapper, thu_thuat_dur_mapper, map_ys_bs, staff_p1_p3, staff_p2
+try:
+    from pywinauto.uia_element_info import UIAElementInfo
+except:
+    pass
 import pytesseract
 import cv2
 import re
 
 # -----------------------------
 # Helpers chung
+
+def get_bs_mapper_by_year(appointment_date_str):
+    """
+    Select bs_mapper based on appointment year.
+    Before 2026: use bs_mapper (old config)
+    From 2026 onwards: use bs_mapper_new (new config)
+    """
+    try:
+        date_obj = parse_date_safe(appointment_date_str)
+        if date_obj.year >= 2026:
+            return bs_mapper_new
+        else:
+            return bs_mapper
+    except:
+        # Default to old mapper if date parsing fails
+        return bs_mapper
 # -----------------------------
 
 def parse_date_safe(date_str: str):
@@ -215,7 +233,9 @@ def read_data(source='data.csv') -> list:
                     if staff_key not in staff_p1_p3:
                         raise ValueError(f"Lỗi ID {final_data['id']}: Nhân viên '{map_ys_bs[staff_key]}' (vị trí {idx_ng+1}) không có trong danh sách Group 1.")
 
-                obj["BS CD"] = bs_mapper[thu]
+                # Select bs_mapper based on appointment year
+                current_bs_mapper = get_bs_mapper_by_year(ngay_CĐ)
+                obj["BS CD"] = current_bs_mapper[thu]
 
                 try:
                     obj["Ngay CD"] = format_datetime_data(ngay_CĐ, gio_CD.strftime("%H:%M")).replace(" ", "{SPACE}")
@@ -313,7 +333,9 @@ def create_data_from_manual_input(patient_id, procedures_list, staff_list, appoi
             idx_ng = 2 if flag else 0
             flag = not flag
         
-        obj["BS CD"] = bs_mapper[thu]
+        # Select bs_mapper based on appointment year
+        current_bs_mapper = get_bs_mapper_by_year(appointment_date)
+        obj["BS CD"] = current_bs_mapper[thu]
         obj["Ngay CD"] = format_datetime_data(appointment_date, gio_CD.strftime("%H:%M")).replace(" ", "{SPACE}")
         obj["Ngay BD TH"] = format_datetime_data(appointment_date, gio_dau.strftime("%H:%M")).replace(" ", "{SPACE}")
         obj["Ngay KQ"] = format_datetime_data(appointment_date, gio_cuoi.strftime("%H:%M")).replace(" ", "{SPACE}")
@@ -559,28 +581,9 @@ def validate_all_data(all_data):
                 
     return errors
 if __name__ == "__main__":
-    from collections import Counter
 
-    def count_values(data):
-        counter = Counter()
-        for item in data:
-            for k, v in item.items():
-                counter[k] += 1
-        return counter
-    
+    in1 = read_data("/Users/trHien/Downloads/export_2402001130_2509014850_2405003918.csv")
+
     import json
-
-    in1 = read_data("data-Linh.csv")
-    in2 = read_data("data-QN.csv")
-
-    true_in1 = json.load(open("data-Linh.json", encoding="utf-8"))
-    true_in2 = json.load(open("data-QN.json", encoding="utf-8"))
-
-    if (count_values(in1) == count_values(true_in1)
-        and count_values(in2) == count_values(true_in2)):
-        print("All tests passed!")
-    else:
-        print("Mismatch detected!")
-        print("Linh diff:", count_values(in1) - count_values(true_in1))
-        print("QN diff:", count_values(in2) - count_values(true_in2))
+    json.dump(in1, open("data.json", "w"), ensure_ascii=False)
 
