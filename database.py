@@ -51,12 +51,27 @@ def initialize_database():
             description TEXT
         )
     """)
+    
+    # Staff table for managing staff members
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS staff (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            short_name TEXT NOT NULL UNIQUE,
+            full_name TEXT NOT NULL,
+            group_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
 
     conn.commit()
     conn.close()
     
     # Initialize default coordinates if table is empty
     initialize_default_coordinates()
+    
+    # Initialize default staff if table is empty  
+    initialize_default_staff()
+
 
 
 # ===== Manual Entries Functions =====
@@ -109,6 +124,197 @@ def delete_manual_entry_from_db(entry_id):
     cursor.execute("DELETE FROM manual_entries WHERE id = ?", (entry_id,))
     conn.commit()
     conn.close()
+
+
+def delete_old_manual_entries(days=30):
+    """
+    Deletes manual entries older than the specified number of days based on created_at timestamp.
+    Default is 30 days.
+    Returns the number of deleted entries.
+    """
+    from datetime import datetime, timedelta
+    
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # Calculate the cutoff datetime
+    cutoff_datetime = datetime.now() - timedelta(days=days)
+    cutoff_str = cutoff_datetime.strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Delete entries older than cutoff based on created_at
+    cursor.execute("""
+        DELETE FROM manual_entries 
+        WHERE created_at < ?
+    """, (cutoff_str,))
+    
+    deleted_count = cursor.rowcount
+    
+    conn.commit()
+    conn.close()
+    
+    return deleted_count
+
+
+# ===== Staff Management Functions =====
+
+def initialize_default_staff():
+    """Initialize staff table with default values from JSON files if empty."""
+    import json
+    import os
+    
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # Check if table has any data
+    cursor.execute("SELECT COUNT(*) FROM staff")
+    count = cursor.fetchone()[0]
+    
+    if count == 0:
+        # Load default staff from JSON files
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Group 1 staff
+        group1_file = os.path.join(current_dir, "staff_group_1.json")
+        if os.path.exists(group1_file):
+            try:
+                with open(group1_file, 'r', encoding='utf-8') as f:
+                    group1_data = json.load(f)
+                    for short_name, full_name in group1_data.items():
+                        cursor.execute("""
+                            INSERT INTO staff (short_name, full_name, group_id)
+                            VALUES (?, ?, ?)
+                        """, (short_name, full_name, 1))
+            except Exception as e:
+                print(f"Error loading Group 1 staff: {e}")
+        
+        # Group 2 staff
+        group2_file = os.path.join(current_dir, "staff_group_2.json")
+        if os.path.exists(group2_file):
+            try:
+                with open(group2_file, 'r', encoding='utf-8') as f:
+                    group2_data = json.load(f)
+                    for short_name, full_name in group2_data.items():
+                        cursor.execute("""
+                            INSERT INTO staff (short_name, full_name, group_id)
+                            VALUES (?, ?, ?)
+                        """, (short_name, full_name, 2))
+            except Exception as e:
+                print(f"Error loading Group 2 staff: {e}")
+        
+        # If JSON files don't exist, use hardcoded defaults
+        if cursor.execute("SELECT COUNT(*) FROM staff").fetchone()[0] == 0:
+            default_staff_1 = {
+                "duy": "Nguyễn Văn Duy",
+                "lya": "H' Lya Niê",
+                "quân": "Lê Văn Quân",
+                "khoái": "Nguyễn Công Khoái",
+                "thịnh": "Nguyễn Văn Thịnh",
+                "hạnh": "Nguyễn Hữu Hạnh",
+                "diệu": "Nguyễn Thị Diệu",
+                "lực": "Lê Đức Lực",
+                "thơ": "Lê Thị Ngọc Thơ",
+                "nhẹ": "H' Nhẹ Niê",
+                "trúc": "Lê Ngọc Trúc",
+            }
+            
+            default_staff_2 = {
+                "hiền": "Trần Thị Thu Hiền",
+                "hoà": "Trần Thị Diệu Hoà",
+                "anh": "Nguyễn Duy Anh",
+                "trị": "Bùi Tá Việt Trị",
+            }
+            
+            for short_name, full_name in default_staff_1.items():
+                cursor.execute("""
+                    INSERT INTO staff (short_name, full_name, group_id)
+                    VALUES (?, ?, ?)
+                """, (short_name, full_name, 1))
+            
+            for short_name, full_name in default_staff_2.items():
+                cursor.execute("""
+                    INSERT INTO staff (short_name, full_name, group_id)
+                    VALUES (?, ?, ?)
+                """, (short_name, full_name, 2))
+        
+        conn.commit()
+    
+    conn.close()
+
+
+def get_all_staff():
+    """Get all staff members grouped by group_id."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT short_name, full_name, group_id
+        FROM staff
+        ORDER BY group_id, short_name
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    staff = []
+    for row in rows:
+        staff.append({
+            'short_name': row[0],
+            'full_name': row[1],
+            'group_id': row[2]
+        })
+    return staff
+
+
+def get_staff_by_group(group_id):
+    """Get staff members for a specific group."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT short_name, full_name
+        FROM staff
+        WHERE group_id = ?
+        ORDER BY short_name
+    """, (group_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    # Return as dictionary {short_name: full_name}
+    return {row[0]: row[1] for row in rows}
+
+
+def add_staff(short_name, full_name, group_id):
+    """Add a new staff member."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute("""
+            INSERT INTO staff (short_name, full_name, group_id)
+            VALUES (?, ?, ?)
+        """, (short_name.strip().lower(), full_name.strip(), group_id))
+        conn.commit()
+        staff_id = cursor.lastrowid
+        conn.close()
+        return staff_id
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError(f"Staff member with short name '{short_name}' already exists")
+
+
+def delete_staff(short_name):
+    """Delete a staff member by short_name."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM staff WHERE short_name = ?", (short_name.lower(),))
+    deleted = cursor.rowcount
+    conn.commit()
+    conn.close()
+    return deleted > 0
+
+
+def get_staff_dict():
+    """Get all staff as a merged dictionary for backward compatibility."""
+    staff_1 = get_staff_by_group(1)
+    staff_2 = get_staff_by_group(2)
+    return {**staff_1, **staff_2}
 
 
 # ===== App Settings Functions =====
@@ -182,7 +388,7 @@ def get_arrow_mode_setting():
     
     if row:
         return row[0] == '1'
-    return False
+    return True
 
 def set_arrow_mode_setting(enabled):
     """Save arrow mode setting."""

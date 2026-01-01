@@ -7,6 +7,17 @@ bs_mapper = {
     5: "Trần Thị Thu Hiền", # Thu 7
     6: "Nguyễn Duy Anh" # CN
 }
+
+bs_mapper_new = {
+    0: "Trần Thị Diệu Hoà", # Thu 2
+    1: "Trần Thị Diệu Hoà", # Thu 3
+    2: "Trần Thị Diệu Hoà", # Thu 4
+    3: "Trần Thị Diệu Hoà", # Thu 5
+    4: "Trần Thị Diệu Hoà", # Thu 6
+    5: "Trần Thị Diệu Hoà", # Thu 7
+    6: "Nguyễn Duy Anh" # CN
+}
+
 thu_thuat_dur_mapper = {
     "điện": 30,
     # "thuỷ": 30,
@@ -128,7 +139,7 @@ import json
 import os
 
 def load_staff_config(filename):
-    """Load staff configuration from JSON file."""
+    """Load staff configuration from JSON file (deprecated - kept for fallback)."""
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         file_path = os.path.join(current_dir, filename)
@@ -152,14 +163,35 @@ def load_staff_config(filename):
         print(f"Error loading {filename}: {e}")
         return {}
 
-# Load staff groups
-staff_p1_p3 = load_staff_config("staff_group_1.json")
-staff_p2 = load_staff_config("staff_group_2.json")
+def load_staff_from_database():
+    """Load staff configuration from database."""
+    try:
+        from database import get_staff_by_group
+        
+        staff_p1_p3 = get_staff_by_group(1)
+        staff_p2 = get_staff_by_group(2)
+        
+        # If database is empty, try loading from JSON files as fallback
+        if not staff_p1_p3 and not staff_p2:
+            print("Database empty, loading staff from JSON files as fallback")
+            staff_p1_p3 = load_staff_config("staff_group_1.json")
+            staff_p2 = load_staff_config("staff_group_2.json")
+        
+        return staff_p1_p3, staff_p2
+    except Exception as e:
+        print(f"Error loading staff from database: {e}")
+        # Fallback to JSON files
+        staff_p1_p3 = load_staff_config("staff_group_1.json")
+        staff_p2 = load_staff_config("staff_group_2.json")
+        return staff_p1_p3, staff_p2
+
+# Load staff groups from database
+staff_p1_p3, staff_p2 = load_staff_from_database()
 
 # Create merged map for backward compatibility
 map_ys_bs = {**staff_p1_p3, **staff_p2}
 
-# If files didn't exist or were empty, use default (fail-safe)
+# If loading failed completely, use hardcoded defaults (fail-safe)
 # IMPORTANT: Keep groups SEPARATE to avoid duplication in UI
 if not staff_p1_p3:
     staff_p1_p3 = {
@@ -188,6 +220,16 @@ if not staff_p2:
 if not map_ys_bs:
     map_ys_bs = {**staff_p1_p3, **staff_p2}
 
+def reload_staff():
+    """Reload staff from database. Call this after staff changes."""
+    global staff_p1_p3, staff_p2, map_ys_bs
+    
+    staff_p1_p3, staff_p2 = load_staff_from_database()
+    map_ys_bs = {**staff_p1_p3, **staff_p2}
+    
+    return staff_p1_p3, staff_p2, map_ys_bs
+
 # # List of disabled/excluded staff members (lowercase short names as keys in map_ys_bs)
 # # Staff in this list will not appear in manual entry and will cause errors during automation
 # disabled_staff = ["diệu"]
+

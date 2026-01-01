@@ -2,7 +2,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
 import config
-from database import get_disabled_staff, set_disabled_staff, add_doctor_leave, get_all_doctor_leaves, delete_doctor_leave
+from database import (get_disabled_staff, set_disabled_staff, add_doctor_leave, 
+                      get_all_doctor_leaves, delete_doctor_leave, get_all_staff,
+                      add_staff, delete_staff)
 
 class ConfigDialog:
     def __init__(self, parent):
@@ -66,7 +68,10 @@ class ConfigDialog:
         # Tab 2: Leave Schedule
         self.setup_leave_tab(notebook)
         
-        # Tab 3: Coordinates
+        # Tab 3: Staff Management
+        self.setup_staff_management_tab(notebook)
+        
+        # Tab 4: Coordinates
         self.setup_coordinates_tab(notebook)
         
         # Buttons at bottom
@@ -330,6 +335,191 @@ class ConfigDialog:
         set_disabled_staff(disabled)
         
         messagebox.showinfo("Thành Công", f"Cấu hình đã lưu!\n{len(disabled)} nhân viên đã vô hiệu hóa.")
+    
+    def setup_staff_management_tab(self, notebook):
+        """Setup the staff management tab."""
+        staff_mgmt_frame = ttk.Frame(notebook, padding="15")
+        notebook.add(staff_mgmt_frame, text="Quản Lý Nhân Viên")
+        
+        # Info label
+        info_label = ttk.Label(staff_mgmt_frame,
+                              text="Thêm hoặc xóa nhân viên từ danh sách. Nhân viên đã xóa sẽ không xuất hiện trong việc nhập liệu.",
+                              font=('Arial', 9), foreground="gray", wraplength=700)
+        info_label.pack(pady=(0, 15))
+        
+        # Two columns for Group 1 and Group 2
+        columns_frame = ttk.Frame(staff_mgmt_frame)
+        columns_frame.pack(fill="both", expand=True)
+        
+        # ===== Group 1 Column =====
+        group1_frame = ttk.LabelFrame(columns_frame, text="Nhóm 1 (Y tá/KTV - Vị trí 1 & 3)", padding="10")
+        group1_frame.pack(side="left", fill="both", expand=True, padx=(0, 5))
+        
+        # Add form for Group 1
+        add1_frame = ttk.Frame(group1_frame)
+        add1_frame.pack(fill="x", pady=(0, 10))
+        
+        ttk.Label(add1_frame, text="Tên ngắn:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.g1_short_var = tk.StringVar()
+        ttk.Entry(add1_frame, textvariable=self.g1_short_var, width=15).grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
+        
+        ttk.Label(add1_frame, text="Tên đầy đủ:", font=('Arial', 9)).grid(row=1, column=0, sticky=tk.W, pady=2)
+        self.g1_full_var = tk.StringVar()
+        ttk.Entry(add1_frame, textvariable=self.g1_full_var, width=25).grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
+        
+        ttk.Button(add1_frame, text="➕ Thêm", command=lambda: self.add_staff_member(1)).grid(row=2, column=1, pady=5)
+        add1_frame.columnconfigure(1, weight=1)
+        
+        # List for Group 1
+        ttk.Separator(group1_frame, orient='horizontal').pack(fill='x', pady=5)
+        ttk.Label(group1_frame, text="Danh sách hiện tại:", font=('Arial', 9, 'bold')).pack(anchor="w", pady=(5, 2))
+        
+        list1_frame = ttk.Frame(group1_frame)
+        list1_frame.pack(fill="both", expand=True)
+        
+        self.g1_tree = ttk.Treeview(list1_frame, columns=("Short", "Full"), show="headings", height=10)
+        self.g1_tree.heading("Short", text="Tên ngắn")
+        self.g1_tree.heading("Full", text="Tên đầy đủ")
+        self.g1_tree.column("Short", width=80)
+        self.g1_tree.column("Full", width=150)
+        
+        g1_scroll = ttk.Scrollbar(list1_frame, orient="vertical", command=self.g1_tree.yview)
+        self.g1_tree.configure(yscrollcommand=g1_scroll.set)
+        
+        self.g1_tree.pack(side="left", fill="both", expand=True)
+        g1_scroll.pack(side="right", fill="y")
+        
+        ttk.Button(group1_frame, text="🗑️ Xóa đã chọn", command=lambda: self.delete_staff_member(1)).pack(pady=(10, 0))
+        
+        # ===== Group 2 Column =====
+        group2_frame = ttk.LabelFrame(columns_frame, text="Nhóm 2 (Bác sĩ - Vị trí 2)", padding="10")
+        group2_frame.pack(side="right", fill="both", expand=True, padx=(5, 0))
+        
+        # Add form for Group 2
+        add2_frame = ttk.Frame(group2_frame)
+        add2_frame.pack(fill="x", pady=(0, 10))
+        
+        ttk.Label(add2_frame, text="Tên ngắn:", font=('Arial', 9)).grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.g2_short_var = tk.StringVar()
+        ttk.Entry(add2_frame, textvariable=self.g2_short_var, width=15).grid(row=0, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
+        
+        ttk.Label(add2_frame, text="Tên đầy đủ:", font=('Arial', 9)).grid(row=1, column=0, sticky=tk.W, pady=2)
+        self.g2_full_var = tk.StringVar()
+        ttk.Entry(add2_frame, textvariable=self.g2_full_var, width=25).grid(row=1, column=1, sticky=(tk.W, tk.E), padx=5, pady=2)
+        
+        ttk.Button(add2_frame, text="➕ Thêm", command=lambda: self.add_staff_member(2)).grid(row=2, column=1, pady=5)
+        add2_frame.columnconfigure(1, weight=1)
+        
+        # List for Group 2
+        ttk.Separator(group2_frame, orient='horizontal').pack(fill='x', pady=5)
+        ttk.Label(group2_frame, text="Danh sách hiện tại:", font=('Arial', 9, 'bold')).pack(anchor="w", pady=(5, 2))
+        
+        list2_frame = ttk.Frame(group2_frame)
+        list2_frame.pack(fill="both", expand=True)
+        
+        self.g2_tree = ttk.Treeview(list2_frame, columns=("Short", "Full"), show="headings", height=10)
+        self.g2_tree.heading("Short", text="Tên ngắn")
+        self.g2_tree.heading("Full", text="Tên đầy đủ")
+        self.g2_tree.column("Short", width=80)
+        self.g2_tree.column("Full", width=150)
+        
+        g2_scroll = ttk.Scrollbar(list2_frame, orient="vertical", command=self.g2_tree.yview)
+        self.g2_tree.configure(yscrollcommand=g2_scroll.set)
+        
+        self.g2_tree.pack(side="left", fill="both", expand=True)
+        g2_scroll.pack(side="right", fill="y")
+        
+        ttk.Button(group2_frame, text="🗑️ Xóa đã chọn", command=lambda: self.delete_staff_member(2)).pack(pady=(10, 0))
+        
+        # Load initial data
+        self.refresh_staff_lists()
+    
+    def refresh_staff_lists(self):
+        """Refresh both staff lists from database."""
+        # Clear existing
+        for item in self.g1_tree.get_children():
+            self.g1_tree.delete(item)
+        for item in self.g2_tree.get_children():
+            self.g2_tree.delete(item)
+        
+        # Load from database
+        all_staff = get_all_staff()
+        
+        for staff in all_staff:
+            if staff['group_id'] == 1:
+                self.g1_tree.insert("", "end", values=(staff['short_name'], staff['full_name']))
+            elif staff['group_id'] == 2:
+                self.g2_tree.insert("", "end", values=(staff['short_name'], staff['full_name']))
+    
+    def add_staff_member(self, group_id):
+        """Add a new staff member to the specified group."""
+        try:
+            if group_id == 1:
+                short_name = self.g1_short_var.get().strip()
+                full_name = self.g1_full_var.get().strip()
+            else:
+                short_name = self.g2_short_var.get().strip()
+                full_name = self.g2_full_var.get().strip()
+            
+            if not short_name or not full_name:
+                messagebox.showerror("Lỗi", "Vui lòng nhập đầy đủ tên ngắn và tên đầy đủ")
+                return
+            
+            # Add to database
+            add_staff(short_name, full_name, group_id)
+            
+            # Reload config
+            config.reload_staff()
+            
+            # Refresh list
+            self.refresh_staff_lists()
+            
+            # Clear form
+            if group_id == 1:
+                self.g1_short_var.set("")
+                self.g1_full_var.set("")
+            else:
+                self.g2_short_var.set("")
+                self.g2_full_var.set("")
+            
+            messagebox.showinfo("Thành Công", f"Đã thêm {full_name} ({short_name}) vào Nhóm {group_id}")
+            
+        except ValueError as e:
+            messagebox.showerror("Lỗi", str(e))
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể thêm nhân viên:\n{str(e)}")
+    
+    def delete_staff_member(self, group_id):
+        """Delete selected staff member from the specified group."""
+        tree = self.g1_tree if group_id == 1 else self.g2_tree
+        selection = tree.selection()
+        
+        if not selection:
+            messagebox.showwarning("Cảnh Báo", "Vui lòng chọn nhân viên để xóa")
+            return
+        
+        item = selection[0]
+        values = tree.item(item, "values")
+        short_name = values[0]
+        full_name = values[1]
+        
+        if messagebox.askyesno("Xác Nhận", 
+                               f"Xóa nhân viên {full_name} ({short_name})?\n\n"
+                               "Lưu ý: Nhân viên này sẽ không còn xuất hiện trong danh sách nhập liệu."):
+            try:
+                # Delete from database
+                delete_staff(short_name)
+                
+                # Reload config
+                config.reload_staff()
+                
+                # Refresh list
+                self.refresh_staff_lists()
+                
+                messagebox.showinfo("Thành Công", f"Đã xóa {full_name}")
+                
+            except Exception as e:
+                messagebox.showerror("Lỗi", f"Không thể xóa nhân viên:\n{str(e)}")
     
     def setup_coordinates_tab(self, notebook):
         """Setup the coordinates configuration tab."""

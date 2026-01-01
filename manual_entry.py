@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import config
 from config import thu_thuat_dur_mapper, map_ys_bs, thu_thuat_ability_mapper
 from handle_data import create_data_from_manual_input, validate_all_data
-from database import save_manual_entry_to_db, get_disabled_staff, check_staff_available
+from database import save_manual_entry_to_db, get_disabled_staff, check_staff_available, delete_old_manual_entries
 import unicodedata
 
 def remove_accents(input_str):
@@ -712,6 +712,11 @@ class ManualEntryDialog:
                 
                 messagebox.showerror("Định Dạng Sai", error_msg)
                 return
+            
+            # Auto-cleanup: Delete entries older than 7 days before saving new data
+            deleted_count = delete_old_manual_entries(days=30)
+            if deleted_count > 0:
+                print(f"Đã xóa {deleted_count} bản ghi cũ hơn 30 ngày")
             
             # Save to database
             save_manual_entry_to_db(

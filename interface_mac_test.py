@@ -2,18 +2,17 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import queue
-from pywinauto import Application
+# from pywinauto import Application  <-- REMOVED
 from handle_data import read_data, export_data_to_csv, merge_csv_and_manual_data, load_manual_data_from_json, create_data_from_manual_input, validate_all_data
-from tool import Tool
+# from tool import Tool <-- REMOVED
 import time
 import os
 import sys
 import webbrowser
-import ctypes
+# import ctypes <-- REMOVED
 import platform
 from config_dialog import ConfigDialog
 from database import initialize_database, load_manual_entries_from_db, get_window_title, set_window_title, get_arrow_mode_setting, set_arrow_mode_setting
-from pywinauto import Application, Desktop
 from manual_entry import ManualEntryDialog
 from config import PATIENT_ROW, TIEP
 
@@ -22,7 +21,7 @@ GITHUB_REPO = "TrH203/Clinic-Auto-Fill"
 class AutomationGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"Medical Data Automation Tool")
+        self.root.title(f"Medical Data Automation Tool (MAC TEST MODE)")
         self.root.geometry("1000x850")  # Increased size to fit all content
         # Set minimum size to prevent UI breaking
         self.root.minsize(950, 800)
@@ -68,7 +67,7 @@ class AutomationGUI:
         main_frame.rowconfigure(4, weight=1)
         
         # Title
-        title_label = ttk.Label(main_frame, text="Medical Data Automation Tool", 
+        title_label = ttk.Label(main_frame, text="Medical Data Automation Tool (Mac Test)", 
                                font=('Arial', 14, 'bold'))
         title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
         
@@ -143,11 +142,11 @@ class AutomationGUI:
         
         
         # Connection section
-        conn_frame = ttk.LabelFrame(main_frame, text="Application Connection", padding="10")
+        conn_frame = ttk.LabelFrame(main_frame, text="Application Connection (MOCKED)", padding="10")
         conn_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 10))
         
         # Target App Label
-        current_title = get_window_title()
+        current_title = get_window_title() or "Mac Test Window"
         short_title = current_title if len(current_title) < 40 else current_title[:37] + "..."
         self.target_app_label = ttk.Label(conn_frame, text=f"Target: {short_title}", 
                                          foreground="blue", width=45)
@@ -164,7 +163,7 @@ class AutomationGUI:
         self.conn_status_label.grid(row=0, column=3, padx=(10, 10))
         
         # Connect Button
-        connect_btn = ttk.Button(conn_frame, text="Kết Nối", 
+        connect_btn = ttk.Button(conn_frame, text="Kết Nối (Test)", 
                                 command=self.connect_to_app)
         connect_btn.grid(row=0, column=2)
         
@@ -218,6 +217,11 @@ class AutomationGUI:
         arrow_date_check = ttk.Checkbutton(delay_frame, text="Ngày Mũi Tên", variable=self.arrow_date_var)
         arrow_date_check.grid(row=0, column=4, padx=(10, 0))
         
+        # Debug Mode Checkbox
+        self.debug_mode_var = tk.BooleanVar(value=True)  # Default to True for debugging
+        debug_check = ttk.Checkbutton(delay_frame, text="🐛 Debug Mode", variable=self.debug_mode_var)
+        debug_check.grid(row=0, column=5, padx=(10, 0))
+        
         # Progress section
         progress_frame = ttk.Frame(control_frame)
         progress_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
@@ -242,12 +246,13 @@ class AutomationGUI:
         current_id_label = ttk.Label(id_frame, textvariable=self.current_id_var, 
                                    font=('Arial', 10, 'bold'), foreground="blue")
         current_id_label.grid(row=0, column=1, sticky=tk.W)
+    
         
         # Hotkey info
         hotkey_frame = ttk.Frame(control_frame)
-        hotkey_frame.grid(row=4, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
+        hotkey_frame.grid(row=6, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(10, 0))
         
-        hotkey_label = ttk.Label(hotkey_frame, text="🔥 Hotkey: Press F12 for Emergency Stop", 
+        hotkey_label = ttk.Label(hotkey_frame, text="🔥 Hotkey: Press F12 or Esc for Emergency Stop (Mock)", 
                                font=('Arial', 9, 'bold'), foreground="red")
         hotkey_label.grid(row=0, column=0, sticky=tk.W)
         
@@ -265,8 +270,6 @@ class AutomationGUI:
         clear_log_btn.grid(row=1, column=0, sticky=tk.E, pady=(5, 0))
         
         
-
-
 
     def setup_hotkeys(self):
         """Setup global hotkey for emergency stop"""
@@ -590,132 +593,18 @@ class AutomationGUI:
             messagebox.showerror("Lỗi", f"Lỗi trong quá trình kiểm tra:\n{str(e)}")
     
     def connect_to_app(self):
-        target_title = get_window_title()
-        try:
-            # Connect to existing application by title
-            # Using backend="uia" as before
-            self.app = Application(backend="uia").connect(title=target_title)
-            self.dlg = self.app.window(title=target_title)
-            
-            # Verify window exists
-            if not self.dlg.exists():
-                raise Exception("Window found but handle is invalid.")
-                
-            self.conn_status_label.config(text="Status: Connected ✓", foreground="green")
-            self.log_message(f"✓ Connected to '{target_title}' successfully")
-            self.update_button_states()
-        except Exception as e:
-            self.conn_status_label.config(text="Status: Connection Failed ✗", foreground="red")
-            self.log_message(f"✗ Connection failed to '{target_title}': {str(e)}", "ERROR")
-            messagebox.showerror("Lỗi Kết Nối", 
-                                f"Không thể kết nối đến ứng dụng '{target_title}':\n{str(e)}\n\nVui lòng đảm bảo ứng dụng đang mở và đúng tên.")
-            
+        # MOCKED FOR MAC
+        # target_title = get_window_title() # Not needed for mock
+        self.app = "MockApp" # Fake object
+        self.dlg = "MockDlg" # Fake object
+        
+        self.conn_status_label.config(text="Status: Connected (MOCK) ✓", foreground="green")
+        self.log_message(f"✓ Connected to Mock App successfully (Mac Test Mode)")
+        self.update_button_states()
+        
     def select_target_window(self):
-        """Open dialog to select target window."""
-        try:
-            # Get list of windows using pywinauto Desktop
-            desktop = Desktop(backend="uia")
-            windows = desktop.windows()
-            
-            win_list = []
-            for w in windows:
-                try:
-                    txt = w.window_text()
-                    if txt and txt.strip():
-                        win_list.append(txt)
-                except:
-                    pass
-            
-            # Sort and remove duplicates
-            win_list = sorted(list(set(win_list)))
-            
-            if not win_list:
-                messagebox.showinfo("Thông Báo", "Không tìm thấy cửa sổ nào.")
-                return
-
-            # Create selection dialog
-            dialog = tk.Toplevel(self.root)
-            dialog.title("Chọn Cửa Sổ Ứng Dụng")
-            dialog.geometry("600x500")
-            
-            # Make modal
-            dialog.transient(self.root)
-            dialog.grab_set()
-            
-            # Center dialog
-            self.root.update_idletasks()
-            x = self.root.winfo_x() + (self.root.winfo_width() - 600) // 2
-            y = self.root.winfo_y() + (self.root.winfo_height() - 500) // 2
-            dialog.geometry(f"+{x}+{y}")
-            
-            # Header
-            ttk.Label(dialog, text="Chọn ứng dụng cần tự động hóa:", 
-                     font=('Arial', 10, 'bold')).pack(pady=10)
-            
-            # Search
-            search_frame = ttk.Frame(dialog, padding=10)
-            search_frame.pack(fill='x')
-            ttk.Label(search_frame, text="Tìm kiếm:").pack(side='left')
-            
-            search_var = tk.StringVar()
-            search_entry = ttk.Entry(search_frame, textvariable=search_var)
-            search_entry.pack(side='left', fill='x', expand=True, padx=5)
-            
-            # Listbox with scrollbar
-            list_frame = ttk.Frame(dialog, padding=10)
-            list_frame.pack(fill='both', expand=True)
-            
-            scrollbar = ttk.Scrollbar(list_frame)
-            scrollbar.pack(side='right', fill='y')
-            
-            lb = tk.Listbox(list_frame, yscrollcommand=scrollbar.set, selectmode='single', font=('Arial', 10))
-            lb.pack(side='left', fill='both', expand=True)
-            scrollbar.config(command=lb.yview)
-            
-            # Populate list
-            for w in win_list:
-                lb.insert('end', w)
-                
-            # Filter function
-            def filter_list(*args):
-                search_term = search_var.get().lower()
-                lb.delete(0, 'end')
-                for w in win_list:
-                    if search_term in w.lower():
-                        lb.insert('end', w)
-            
-            search_var.trace('w', filter_list)
-            
-            def confirm_selection():
-                selection = lb.curselection()
-                if not selection:
-                    messagebox.showwarning("Chưa Chọn", "Vui lòng chọn một cửa sổ.")
-                    return
-                
-                selected_title = lb.get(selection[0])
-                
-                # Save to database
-                set_window_title(selected_title)
-                
-                # Update UI
-                short_title = selected_title if len(selected_title) < 40 else selected_title[:37] + "..."
-                self.target_app_label.config(text=f"Target: {short_title}")
-                self.log_message(f"✓ Target application updated to: {selected_title}")
-                
-                dialog.destroy()
-                
-            # Buttons
-            btn_frame = ttk.Frame(dialog, padding=10)
-            btn_frame.pack(fill='x')
-            
-            ttk.Button(btn_frame, text="Hủy", command=dialog.destroy).pack(side='right', padx=5)
-            ttk.Button(btn_frame, text="Chọn", command=confirm_selection).pack(side='right', padx=5)
-            
-            # Bind double click
-            lb.bind('<Double-Button-1>', lambda e: confirm_selection())
-            
-        except Exception as e:
-            messagebox.showerror("Lỗi", f"Không thể lấy danh sách cửa sổ:\n{str(e)}")
+        """Open dialog to select target window (MOCKED)."""
+        messagebox.showinfo("Mac Test Mode", "Choosing window is not supported/needed in Mac Test Mode.\nOnly Data Entry/Export features are available.")
             
     def update_button_states(self):
         has_data = len(self.all_data) > 0
@@ -727,49 +616,12 @@ class AutomationGUI:
         self.pause_btn.config(state='normal' if self.is_running else 'disabled')
         
     def start_automation(self):
-        if not self.all_data:
-            messagebox.showwarning("Warning", "Please load a data file first.")
-            return
+        import json
+        with open("test.json", "w", encoding="utf-8") as f:
+            json.dump(self.all_data, f, ensure_ascii=False, indent=4)
+        messagebox.showinfo("Mac Test Mode", "Automation is not supported in Mac Test Mode.\nThis mode is only for Data Entry, Validation, and CSV Export.")
+        return 
             
-        if not (self.app and self.dlg):
-            messagebox.showwarning("Warning", "Please connect to the application first.")
-            return
-        
-        # Validate data before starting automation
-        try:
-            errors = validate_all_data(self.all_data)
-            
-            if errors:
-                self.log_message(f"✗ Validation failed with {len(errors)} errors.", "ERROR")
-                
-                # Format errors for display
-                error_text = f"Found {len(errors)} conflict(s):\n\n"
-                # Limit to first 5 for messagebox to avoid overflow
-                display_errors = errors[:5]
-                error_text += "\n\n".join(display_errors)
-                
-                if len(errors) > 5:
-                    error_text += f"\n\n... and {len(errors) - 5} more."
-                
-                error_text += "\n\nPlease fix these conflicts before starting automation."
-                messagebox.showerror("Định Dạng Sai", error_text)
-                return
-            else:
-                self.log_message("✓ Validation passed! No conflicts found.")
-        except Exception as e:
-            self.log_message(f"✗ Validation error: {str(e)}", "ERROR")
-            messagebox.showerror("Lỗi", f"Lỗi trong quá trình kiểm tra:\n{str(e)}\n\nVui lòng sửa lỗi trước khi bắt đầu tự động.")
-            return
-            
-        self.is_running = True
-        self.current_index = 0
-        self.update_button_states()
-        self.log_message("🚀 Starting automation process...")
-        
-        # Start automation in a separate thread
-        self.current_thread = threading.Thread(target=self.run_automation, daemon=True)
-        self.current_thread.start()
-        
     def stop_automation(self):
         self.is_running = False
         self.paused = False
@@ -813,114 +665,6 @@ class AutomationGUI:
                                "Đang tiếp tục tự động hóa...")
             self.root.after(3000, lambda: self.log_message("🔄 Automation continuing..."))
         
-    def run_automation(self):
-        try:
-            self.emergency_stop_flag = False
-            
-            # Ensure target window is focused
-            if self.dlg:
-                try:
-                    # Check if minimized
-                    if self.dlg.get_show_state() == 2:
-                        self.dlg.restore()
-                    self.dlg.set_focus()
-                    self.log_message("✓ Activated target window")
-                except Exception as e:
-                    self.log_message(f"⚠ Could not focus window: {e}")
-            
-            self.log_message("⏳ Starting in 2 seconds...")
-            for k in range(2, 0, -1):
-                if not self.is_running or self.emergency_stop_flag:
-                    return
-                time.sleep(1)
-            
-            for i, data in enumerate(self.all_data):
-                # Check for emergency stop first
-                if self.emergency_stop_flag or not self.is_running:
-                    break
-                    
-                # Check for pause
-                while self.paused and self.is_running and not self.emergency_stop_flag:
-                    time.sleep(0.5)
-                    
-                if self.emergency_stop_flag or not self.is_running:
-                    break
-                    
-                self.current_index = i
-                current_id = data.get("id", "Unknown")
-                
-                # Update UI in main thread
-                self.root.after(0, lambda: self.current_id_var.set(current_id))
-                self.root.after(0, lambda: self.progress_var.set(f"{i+1}/{len(self.all_data)}"))
-                self.root.after(0, lambda: self.progress_bar.config(value=i+1))
-                
-                self.log_message(f"📋 Processing ID: {current_id} ({i+1}/{len(self.all_data)})")
-                
-                try:
-                    # Create tool with custom delays
-                    tool = Tool(app=self.app, dlg=self.dlg)
-                    
-                    # Execute automation steps with delays and emergency stop checks
-                    steps = [
-                        ("Setting 'Cho thuc hien' mode", lambda: tool.click_thuc_hien(mode=data["isFirst"])),
-                        (f"Setting start date: {data['ngay']}", lambda: tool.type_ngay_bat_dau(ngay=data["ngay"], arrow_mode=self.arrow_date_var.get())),
-                        (f"Setting end date: {data['ngay']}", lambda: tool.type_ngay_ket_thuc(ngay=data["ngay"], arrow_mode=self.arrow_date_var.get())),
-                        (f"Entering ID: {current_id}", lambda: tool.type_id(id=data["id"])),
-                        ("Clicking reload", lambda: tool.click_reload()),
-                        ("Selecting patient row", lambda: tool._double_click_position(coords=PATIENT_ROW)),
-                        ("Filling medical procedure data", lambda: tool.fill_thu_thuat_data(data["thu_thuats"], mode=data["isFirst"], arrow_mode=self.arrow_date_var.get())),
-                        ("Clicking next", lambda: tool._click_position(coords=TIEP)),
-                        ("Waiting for reload", lambda: time.sleep(1.0)),
-                    ]
-                    
-                    for step_name, step_func in steps:
-                        if self.emergency_stop_flag or not self.is_running:
-                            break
-                            
-                        # Check for pause before each step
-                        while self.paused and self.is_running and not self.emergency_stop_flag:
-                            time.sleep(0.5)
-                            
-                        if self.emergency_stop_flag or not self.is_running:
-                            break
-                            
-                        self.log_message(f"  → {step_name}")
-                        
-                        # Execute the step
-                        step_func()
-                        
-                        # Add delay between steps
-                        step_delay = self.step_delay_var.get()
-                        if step_delay > 0:
-                            time.sleep(step_delay)
-                    
-                    if not self.emergency_stop_flag and self.is_running:
-                        self.log_message(f"✅ Completed processing ID: {current_id}")
-                    
-                except Exception as e:
-                    if self.emergency_stop_flag:
-                        self.log_message(f"🛑 Emergency stop during ID {current_id}")
-                        break
-                    else:
-                        self.log_message(f"❌ Error processing ID {current_id}: {str(e)}", "ERROR")
-                        continue
-                        
-        except Exception as e:
-            self.log_message(f"❌ Automation error: {str(e)}", "ERROR")
-        finally:
-            self.is_running = False
-            self.paused = False
-            self.emergency_stop_flag = False
-            self.root.after(0, self.update_button_states)
-            self.root.after(0, lambda: self.pause_btn.config(text="Pause"))
-            
-            if self.emergency_stop_flag:
-                self.log_message("🛑 Automation stopped by emergency stop")
-            elif self.current_index >= len(self.all_data) - 1:
-                self.log_message("🎉 Automation completed successfully!")
-            else:
-                self.log_message("⏹️ Automation stopped")
-                
     def check_queue(self):
         """Check for messages from worker thread"""
         try:
@@ -932,9 +676,13 @@ class AutomationGUI:
         finally:
             self.root.after(100, self.check_queue)
             
-    def log_message(self, message, level="INFO"):
+    def log_message(self, message, level="INFO", debug_data=None):
         timestamp = time.strftime("%H:%M:%S")
         formatted_message = f"[{timestamp}] {message}\n"
+        
+        # If debug mode is on and we have debug data, add it
+        if self.debug_mode_var.get() and debug_data:
+            formatted_message += f"           [DEBUG] {debug_data}\n"
         
         def update_log():
             self.log_text.config(state='normal')
@@ -987,31 +735,8 @@ class AutomationGUI:
             self.root.destroy()
 
 
-def is_admin():
-    try:
-        return ctypes.windll.shell32.IsUserAnAdmin()
-    except:
-        return False
-
 def main():
-    # Check for Admin privileges on Windows
-    if platform.system() == "Windows":
-        if not is_admin():
-            # Re-run the program with admin rights
-            try:
-                ctypes.windll.shell32.ShellExecuteW(
-                    None, 
-                    "runas", 
-                    sys.executable, 
-                    " ".join(sys.argv), 
-                    None, 
-                    1
-                )
-                return  # Exit current instance
-            except Exception as e:
-                messagebox.showerror("Error", f"Failed to request facilitator privileges: {e}")
-                return
-
+    # Removed Windows Admin check
     initialize_database()
     root = tk.Tk()
     app = AutomationGUI(root)

@@ -1,8 +1,7 @@
 import time
 from pywinauto.keyboard import send_keys
 from handle_data import convert_info_from_text
-from config import DICH_VU_THU_THUAT, BSCD, BSCD_NGUOI_DAU_TIEN, NGAY_CD, NGAY_BDTH, NGAY_KQ, \
-    NGAY_KET_THUC, NGAY_BAT_DAU, SUA, ID_BOX, CHO_THUC_HIEN, DA_THUC_HIEN, RELOAD, CCHN_NGUOI_DAU_TIEN, CCHN, LUU
+import config
 import pyautogui
 import pytesseract
 import cv2
@@ -18,10 +17,12 @@ class Tool:
 
 
     def _double_click_position(self, coords, wait=0.1):
+        print(f"Double clicking at: {coords}")
         self.dlg.double_click_input(coords=coords)
         time.sleep(wait)
 
     def _click_position(self, coords, wait=0.1):
+        print(f"Clicking at: {coords}")
         self.dlg.click_input(coords=coords)
         time.sleep(wait)
     
@@ -76,13 +77,16 @@ class Tool:
             return None
 
     def click_reload(self):
-        self._click_position(coords=RELOAD)
+        print(f"DEBUG: Reloading at {config.RELOAD}")
+        self._click_position(coords=config.RELOAD)
 
     def click_thuc_hien(self, mode:bool = True):
         if mode == False: # Cho thuc hien
-            self._click_position(coords=CHO_THUC_HIEN)
+            print(f"DEBUG: Clicking CHO_THUC_HIEN at {config.CHO_THUC_HIEN}")
+            self._click_position(coords=config.CHO_THUC_HIEN)
         if mode == True: # Da Thuc Hien
-            self._click_position(coords=DA_THUC_HIEN)
+            print(f"DEBUG: Clicking DA_THUC_HIEN at {config.DA_THUC_HIEN}")
+            self._click_position(coords=config.DA_THUC_HIEN)
 
     
     def _type_date_arrow(self, ngay: str):
@@ -105,30 +109,30 @@ class Tool:
     
     def type_ngay_bat_dau(self, ngay: str, arrow_mode: bool = False):
         # Nhap ngay bat dau
-        self._click_position(coords=NGAY_BAT_DAU)
+        self._click_position(coords=config.NGAY_BAT_DAU)
         if arrow_mode:
             self._type_date_arrow(ngay)
         else:
             self._type_text(ngay)
 
     def type_ngay_ket_thuc(self, ngay: str, arrow_mode: bool = False):
-        self.dlg.click_input(coords=NGAY_KET_THUC)
+        self.dlg.click_input(coords=config.NGAY_KET_THUC)
         if arrow_mode:
             self._type_date_arrow(ngay)
         else:
             self._type_text(ngay)
 
     def type_id(self, id:str):
-        self._click_position(coords=ID_BOX)
+        self._click_position(coords=config.ID_BOX)
         self._type_text(id)
 
     def fill_thu_thuat_data(self, data: list, mode = True, arrow_mode: bool = False):
         for idx in range(4):
             
             if mode == True:
-                x, y = DICH_VU_THU_THUAT[idx]
+                x, y = config.DICH_VU_THU_THUAT[idx]
             else:
-                x, y = DICH_VU_THU_THUAT[0]
+                x, y = config.DICH_VU_THU_THUAT[0]
 
             text = self.extract_text(x=x,y=y, index=idx)
             
@@ -154,38 +158,38 @@ class Tool:
             self._click_position(coords=(x,y), wait=0.5) # Click Dich vu ky thuat
             
             if mode:
-                self._click_position(coords=SUA, wait=0.1) # Click sua
+                self._click_position(coords=config.SUA, wait=0.1) # Click sua
             
             # Click BS CD
-            self._click_position(coords=BSCD,  wait=0.2) # Click BS CD
+            self._click_position(coords=config.BSCD,  wait=0.2) # Click BS CD
             self._type_text_no_telex(info["BS CD"])
-            self._click_position(coords=BSCD_NGUOI_DAU_TIEN) # Click nguoi dau tien trong danh sach
+            self._click_position(coords=config.BSCD_NGUOI_DAU_TIEN) # Click nguoi dau tien trong danh sach
             
             # Click Ngay CD:
             # print("Ngay CD", info["Ngay CD"])
-            self._click_position(coords=NGAY_CD, wait=0.1)
+            self._click_position(coords=config.NGAY_CD, wait=0.1)
             if arrow_mode:
                 self._type_date_arrow(info["Ngay CD"])
             else:
                 self._type_text(info["Ngay CD"])
 
             # Click Ngay BDTH
-            self._click_position(coords=NGAY_BDTH, wait=0.1)
+            self._click_position(coords=config.NGAY_BDTH, wait=0.1)
             if arrow_mode:
                 self._type_date_arrow(info["Ngay BD TH"])
             else:
                 self._type_text(info["Ngay BD TH"], wait=0.1)
             
             # Click Ngay KQ
-            self._click_position(coords=NGAY_KQ, wait=0.1)
+            self._click_position(coords=config.NGAY_KQ, wait=0.1)
             if arrow_mode:
                 self._type_date_arrow(info["Ngay KQ"])
             else:
                 self._type_text(info["Ngay KQ"])
             
             # # Click CCHN
-            self._click_position(coords=CCHN, wait=0.1)
+            self._click_position(coords=config.CCHN, wait=0.1)
             self._type_text_no_telex(info["Nguoi Thuc Hien"])
-            self._click_position(coords=CCHN_NGUOI_DAU_TIEN) # Click nguoi dau tien trong danh sach
+            self._click_position(coords=config.CCHN_NGUOI_DAU_TIEN) # Click nguoi dau tien trong danh sach
 
-            self._click_position(coords=LUU) # Luu
+            # self._click_position(coords=config.LUU) # Luu
