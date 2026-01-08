@@ -458,6 +458,7 @@ def export_data_to_csv(data_list, filename):
                             time_part = ''
                         
                         # Reconstruct staff roles to ensure correct order: P1 - P2 - P3
+                        # CRITICAL: Always preserve all 3 positions to maintain data integrity during export/import
                         p1, p2, p3 = None, None, None
                         ys_count = 0
                         
@@ -485,10 +486,22 @@ def export_data_to_csv(data_list, filename):
                                     if not p3: p3 = staff_short
                                 ys_count += 1
                         
-                        # Join strictly in order: Person 1, Person 2 (BS), Person 3
-                        # Filter out None values
-                        staff_ordered = [p for p in [p1, p2, p3] if p]
-                        staff_str = '-'.join(staff_ordered)
+                        # Join in order: Person 1, Person 2 (BS), Person 3
+                        # CRITICAL FIX: Do NOT filter out None/empty positions
+                        # This preserves all positions even if some procedures don't need certain staff
+                        # Use the first staff member for all empty positions to maintain data structure
+                        # This ensures export -> import round-trip consistency
+                        if p1 or p2 or p3:
+                            # Find the first non-None staff to use as default
+                            default_staff = p1 or p2 or p3
+                            staff_ordered = [
+                                p1 if p1 else default_staff,
+                                p2 if p2 else default_staff,
+                                p3 if p3 else default_staff
+                            ]
+                            staff_str = '-'.join(staff_ordered)
+                        else:
+                            staff_str = ''
                         
                         # Write appointment row
                         writer.writerow([time_part, staff_str, ngay_short])
@@ -582,7 +595,7 @@ def validate_all_data(all_data):
     return errors
 if __name__ == "__main__":
 
-    in1 = read_data("/Users/trHien/Downloads/export_2402001130_2509014850_2405003918.csv")
+    in1 = read_data("/Users/trHien/Downloads/new_test.csv")
 
     import json
     json.dump(in1, open("data.json", "w"), ensure_ascii=False)
