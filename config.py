@@ -5,7 +5,7 @@ bs_mapper = {
     3: "Trần Thị Thu Hiền", # Thu 5
     4: "Trần Thị Thu Hiền", # Thu 6
     5: "Trần Thị Thu Hiền", # Thu 7
-    6: "Nguyễn Duy Anh" # CN
+    6: "Bùi Tá Việt Trị" # CN
 }
 
 bs_mapper_new = {
