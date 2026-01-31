@@ -15,7 +15,7 @@ bs_mapper_new = {
     3: "Trần Thị Diệu Hoà", # Thu 5
     4: "Trần Thị Diệu Hoà", # Thu 6
     5: "Trần Thị Diệu Hoà", # Thu 7
-    6: "Nguyễn Duy Anh" # CN
+    6: "Bùi Tá Việt Trị" # CN
 }
 
 thu_thuat_dur_mapper = {
