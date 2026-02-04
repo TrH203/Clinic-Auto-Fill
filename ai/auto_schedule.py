@@ -209,11 +209,13 @@ def build_full_to_short_map():
     return {v: k for k, v in config.map_ys_bs.items()}
 
 
-def record_has_staff_conflict(record, used_staff_times, full_to_short):
+def record_has_staff_conflict(record, used_staff_times, full_to_short, group1_set):
     for tt in record.get("thu_thuats", []):
         staff_full = tt.get("Nguoi Thuc Hien", "")
         staff_short = full_to_short.get(staff_full)
         if not staff_short:
+            continue
+        if staff_short not in group1_set:
             continue
         start_raw = tt.get("Ngay BD TH", "").replace("{SPACE}", " ").strip()
         if not start_raw:
@@ -229,11 +231,13 @@ def record_has_staff_conflict(record, used_staff_times, full_to_short):
     return False
 
 
-def apply_record_staff_times(record, used_staff_times, full_to_short):
+def apply_record_staff_times(record, used_staff_times, full_to_short, group1_set):
     for tt in record.get("thu_thuats", []):
         staff_full = tt.get("Nguoi Thuc Hien", "")
         staff_short = full_to_short.get(staff_full)
         if not staff_short:
+            continue
+        if staff_short not in group1_set:
             continue
         start_raw = tt.get("Ngay BD TH", "").replace("{SPACE}", " ").strip()
         if not start_raw:
@@ -303,6 +307,8 @@ def pick_staff_for_slot(
     group2_all = sorted([s for s in config.staff_p2.keys() if s not in disabled])
 
     def is_free(staff_short):
+        if staff_short not in config.staff_p1_p3:
+            return True
         return start_time not in used_staff_times[(date_str, staff_short)]
 
     group1_avail = [
@@ -376,12 +382,14 @@ def generate_schedule(
         disabled_staff = set(get_disabled_staff())
         availability_cache = {}
         full_to_short = build_full_to_short_map()
+        group1_set = set(config.staff_p1_p3.keys())
         used_group1_by_slot = defaultdict(set)
         used_staff_times = defaultdict(set)
     else:
         disabled_staff = shared_context["disabled_staff"]
         availability_cache = shared_context["availability_cache"]
         full_to_short = shared_context["full_to_short"]
+        group1_set = shared_context["group1_set"]
         used_group1_by_slot = shared_context["used_group1_by_slot"]
         used_staff_times = shared_context["used_staff_times"]
 
@@ -432,10 +440,12 @@ def generate_schedule(
                     start_time,
                 )
 
-                if record_has_staff_conflict(record, used_staff_times, full_to_short):
+                if record_has_staff_conflict(
+                    record, used_staff_times, full_to_short, group1_set
+                ):
                     continue
 
-                apply_record_staff_times(record, used_staff_times, full_to_short)
+                apply_record_staff_times(record, used_staff_times, full_to_short, group1_set)
                 used_group1.update([staff_list[0], staff_list[2]])
                 return record
 
@@ -496,6 +506,7 @@ def generate_schedule_batch(
         "disabled_staff": set(get_disabled_staff()),
         "availability_cache": {},
         "full_to_short": build_full_to_short_map(),
+        "group1_set": set(config.staff_p1_p3.keys()),
         "used_group1_by_slot": defaultdict(set),
         "used_staff_times": defaultdict(set),
     }
