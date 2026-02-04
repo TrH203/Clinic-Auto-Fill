@@ -38,6 +38,7 @@ Optional flags:
 - `--slots-kind CD|BD_TH` to override config
 - `--slots-by-date-file path/to/slots.json` for per-day time slots (Ngay CD)
 - `--slots-by-date-json '{"19-12-25":["7:39","13:36"]}'` for inline per-day slots
+- `--batch-file path/to/batch.txt` to generate multiple IDs in one run
 
 ### Slots-by-date example
 Create a JSON file like this (Ngay CD per day):
@@ -90,3 +91,27 @@ Rules:
 - Staff assignment is randomized but respects Group 1/Group 2 roles, disabled staff,
   and leave schedule rules from the database.
 - By default, the script generates **one appointment per day** in the date range.
+- In **batch mode**, staff conflicts are checked across all IDs in the same run
+  (no duplicated start times for the same staff on the same day).
+
+### Batch example
+Create `ai/batch.txt`:
+
+```
+2505012345;xoa-điện-kéo-giác
+2505012346;xoa-điện-kéo-giác
+2505012347
+```
+
+Run:
+
+```
+python ai/auto_schedule.py \
+  --batch-file ai/batch.txt \
+  --procedures "xoa-điện-kéo-giác" \
+  --start-date 19-12-2025 \
+  --end-date 28-12-2025 \
+  --output ai/generated_schedule.csv
+```
+
+If a line omits procedures, the script uses `--procedures`.

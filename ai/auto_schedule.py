@@ -288,24 +288,32 @@ def is_staff_available(staff_short, db_date, time_str, cache):
     return ok
 
 
-def pick_staff_for_slot(date_str, start_time, rng, disabled, availability_cache, used_group1=None):
+def pick_staff_for_slot(
+    date_str,
+    start_time,
+    rng,
+    disabled,
+    availability_cache,
+    used_staff_times,
+    used_group1=None,
+):
     db_date = datetime.strptime(date_str, "%d-%m-%Y").strftime("%Y-%m-%d")
 
     group1_all = sorted([s for s in config.staff_p1_p3.keys() if s not in disabled])
     group2_all = sorted([s for s in config.staff_p2.keys() if s not in disabled])
 
-    print("group1_all:", group1_all)
-    print("group2_all:", group2_all)
-    
+    def is_free(staff_short):
+        return start_time not in used_staff_times[(date_str, staff_short)]
+
     group1_avail = [
         s
         for s in group1_all
-        if is_staff_available(s, db_date, start_time, availability_cache)
+        if is_staff_available(s, db_date, start_time, availability_cache) and is_free(s)
     ]
     group2_avail = [
         s
         for s in group2_all
-        if is_staff_available(s, db_date, start_time, availability_cache)
+        if is_staff_available(s, db_date, start_time, availability_cache) and is_free(s)
     ]
 
     if not group1_avail:
@@ -346,10 +354,14 @@ def generate_schedule(
     slots_by_procedure=None,
     slots_kind="CD",
     seed=None,
+    rng=None,
     use_all_slots=False,
     shuffle_slots=True,
+    validate=True,
+    shared_context=None,
 ):
-    rng = random.Random(seed)
+    if rng is None:
+        rng = random.Random(seed)
 
     if slots_by_date and (not start_date or not end_date):
         all_dates = sorted(slots_by_date.keys(), key=lambda d: parse_date_safe(d))
@@ -359,12 +371,20 @@ def generate_schedule(
         end_date = all_dates[-1]
 
     dates = build_date_range(start_date, end_date)
-    disabled_staff = set(get_disabled_staff())
-    availability_cache = {}
-    full_to_short = build_full_to_short_map()
 
-    used_group1_by_slot = defaultdict(set)
-    used_staff_times = defaultdict(set)
+    if shared_context is None:
+        disabled_staff = set(get_disabled_staff())
+        availability_cache = {}
+        full_to_short = build_full_to_short_map()
+        used_group1_by_slot = defaultdict(set)
+        used_staff_times = defaultdict(set)
+    else:
+        disabled_staff = shared_context["disabled_staff"]
+        availability_cache = shared_context["availability_cache"]
+        full_to_short = shared_context["full_to_short"]
+        used_group1_by_slot = shared_context["used_group1_by_slot"]
+        used_staff_times = shared_context["used_staff_times"]
+
     records = []
 
     for date_index, date_str in enumerate(dates):
@@ -382,15 +402,13 @@ def generate_schedule(
         else:
             slots_for_day = list(time_slots)
 
+        if not slots_for_day:
+            raise ValueError(f"No slots available for date {date_str}.")
+
         if shuffle_slots:
             rng.shuffle(slots_for_day)
 
-        if use_all_slots:
-            chosen_slots = slots_for_day
-        else:
-            chosen_slots = [rng.choice(slots_for_day)]
-
-        for cd_time in chosen_slots:
+        def try_build_record(cd_time):
             start_time = convert_slot_time(cd_time, slots_kind)
             used_group1 = used_group1_by_slot[(date_str, start_time)]
 
@@ -402,6 +420,7 @@ def generate_schedule(
                     rng,
                     disabled_staff,
                     availability_cache,
+                    used_staff_times,
                     used_group1,
                 )
 
@@ -418,12 +437,30 @@ def generate_schedule(
 
                 apply_record_staff_times(record, used_staff_times, full_to_short)
                 used_group1.update([staff_list[0], staff_list[2]])
+                return record
+
+            return None
+
+        if use_all_slots:
+            for cd_time in slots_for_day:
+                record = try_build_record(cd_time)
+                if record is None:
+                    raise RuntimeError(
+                        f"Could not find non-conflicting staff for {date_str} {cd_time}"
+                    )
                 records.append(record)
-                break
-            else:
+        else:
+            record = None
+            for cd_time in slots_for_day:
+                record = try_build_record(cd_time)
+                if record is not None:
+                    break
+            if record is None:
                 raise RuntimeError(
-                    f"Could not find non-conflicting staff for {date_str} {start_time}"
+                    f"Could not find non-conflicting staff for {date_str} "
+                    f"with any slot in {', '.join(slots_for_day)}"
                 )
+            records.append(record)
 
     records.sort(key=record_sort_key)
 
@@ -433,11 +470,65 @@ def generate_schedule(
         record["isFirst"] = pid not in seen_patients
         seen_patients.add(pid)
 
-    errors = validate_all_data(records)
+    if validate:
+        errors = validate_all_data(records)
+        if errors:
+            raise RuntimeError("Schedule conflicts detected:\n" + "\n\n".join(errors))
+
+    return records
+
+
+def generate_schedule_batch(
+    patients,
+    procedures_default,
+    start_date,
+    end_date,
+    time_slots,
+    slots_by_date=None,
+    slots_by_procedure=None,
+    slots_kind="CD",
+    seed=None,
+    use_all_slots=False,
+    shuffle_slots=True,
+):
+    rng = random.Random(seed)
+    shared_context = {
+        "disabled_staff": set(get_disabled_staff()),
+        "availability_cache": {},
+        "full_to_short": build_full_to_short_map(),
+        "used_group1_by_slot": defaultdict(set),
+        "used_staff_times": defaultdict(set),
+    }
+
+    all_records = []
+    for patient in patients:
+        patient_id = patient["patient_id"]
+        procedures = patient.get("procedures") or procedures_default
+        if not procedures:
+            raise ValueError("Procedures are required for batch generation.")
+
+        records = generate_schedule(
+            patient_id=patient_id,
+            procedures=procedures,
+            start_date=start_date,
+            end_date=end_date,
+            time_slots=time_slots,
+            slots_by_date=slots_by_date,
+            slots_by_procedure=slots_by_procedure,
+            slots_kind=slots_kind,
+            rng=rng,
+            use_all_slots=use_all_slots,
+            shuffle_slots=shuffle_slots,
+            validate=False,
+            shared_context=shared_context,
+        )
+        all_records.extend(records)
+
+    errors = validate_all_data(all_records)
     if errors:
         raise RuntimeError("Schedule conflicts detected:\n" + "\n\n".join(errors))
 
-    return records
+    return all_records
 
 
 def main():
@@ -448,6 +539,11 @@ def main():
     parser.add_argument("--procedures", dest="procedures")
     parser.add_argument("--start-date", dest="start_date")
     parser.add_argument("--end-date", dest="end_date")
+    parser.add_argument(
+        "--batch-file",
+        dest="batch_file",
+        help="Batch file with lines: patient_id;procedures(optional)",
+    )
     parser.add_argument(
         "--output",
         default=os.path.join("ai", "generated_schedule.csv"),
@@ -498,9 +594,9 @@ def main():
 
     default_slots_file = os.path.join("ai", "slots_by_date.json")
 
-    if not args.patient_id:
+    if not args.patient_id and not args.batch_file:
         args.patient_id = input("Patient ID: ").strip()
-    if not args.procedures:
+    if not args.procedures and not args.batch_file:
         args.procedures = input("Procedures (e.g., điện-xoa-kéo-giác): ").strip()
 
     slots_by_date = None
@@ -526,7 +622,7 @@ def main():
     if not args.end_date and slots_by_date is None:
         args.end_date = input("End date (DD-MM-YYYY): ").strip()
 
-    procedures = normalize_procedures(args.procedures)
+    procedures = normalize_procedures(args.procedures) if args.procedures else None
 
     if slots_by_date is None and slots_by_procedure is None:
         if args.time_slots_file:
@@ -540,19 +636,48 @@ def main():
     else:
         time_slots = []
 
-    records = generate_schedule(
-        patient_id=args.patient_id,
-        procedures=procedures,
-        start_date=args.start_date,
-        end_date=args.end_date,
-        time_slots=time_slots,
-        slots_by_date=slots_by_date,
-        slots_by_procedure=slots_by_procedure,
-        slots_kind=args.slots_kind,
-        seed=args.seed,
-        use_all_slots=args.use_all_slots,
-        shuffle_slots=not args.no_shuffle_slots,
-    )
+    if args.batch_file:
+        patients = []
+        with open(args.batch_file, "r", encoding="utf-8") as f:
+            for line in f:
+                raw = line.strip()
+                if not raw or raw.startswith("#"):
+                    continue
+                parts = [p.strip() for p in raw.split(";") if p.strip()]
+                if not parts:
+                    continue
+                patient_id = parts[0]
+                proc_val = parts[1] if len(parts) > 1 else None
+                proc_list = normalize_procedures(proc_val) if proc_val else None
+                patients.append({"patient_id": patient_id, "procedures": proc_list})
+
+        records = generate_schedule_batch(
+            patients=patients,
+            procedures_default=procedures,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            time_slots=time_slots,
+            slots_by_date=slots_by_date,
+            slots_by_procedure=slots_by_procedure,
+            slots_kind=args.slots_kind,
+            seed=args.seed,
+            use_all_slots=args.use_all_slots,
+            shuffle_slots=not args.no_shuffle_slots,
+        )
+    else:
+        records = generate_schedule(
+            patient_id=args.patient_id,
+            procedures=procedures,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            time_slots=time_slots,
+            slots_by_date=slots_by_date,
+            slots_by_procedure=slots_by_procedure,
+            slots_kind=args.slots_kind,
+            seed=args.seed,
+            use_all_slots=args.use_all_slots,
+            shuffle_slots=not args.no_shuffle_slots,
+        )
 
     export_data_to_csv(records, args.output)
     print(f"Generated {len(records)} appointment(s) -> {args.output} (seed={args.seed})")
