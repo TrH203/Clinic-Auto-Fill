@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
 import queue
+import importlib.util
+import json
 # from pywinauto import Application  <-- REMOVED
 from handle_data import read_data, export_data_to_csv, merge_csv_and_manual_data, load_manual_data_from_json, create_data_from_manual_input, validate_all_data
 # from tool import Tool <-- REMOVED
@@ -14,6 +16,7 @@ import platform
 from config_dialog import ConfigDialog
 from database import initialize_database, load_manual_entries_from_db, get_window_title, set_window_title, get_arrow_mode_setting, set_arrow_mode_setting
 from manual_entry import ManualEntryDialog
+import config
 from config import PATIENT_ROW, TIEP
 
 GITHUB_REPO = "TrH203/Clinic-Auto-Fill"
@@ -95,6 +98,9 @@ class AutomationGUI:
         
         validate_btn = ttk.Button(file_frame, text="🛡️ Kiểm Tra Dữ Liệu", command=self.validate_data)
         validate_btn.grid(row=0, column=6)
+
+        batch_btn = ttk.Button(file_frame, text="🧾 Batch IDs", command=self.open_batch_editor)
+        batch_btn.grid(row=0, column=7, padx=(5, 0))
         
         # Data display table
         data_table_frame = ttk.LabelFrame(main_frame, text="Loaded Data", padding="10")
@@ -281,6 +287,18 @@ class AutomationGUI:
         
         # Also bind Escape key as alternative emergency stop
         self.root.bind('<Escape>', lambda event: self.emergency_stop() if self.is_running else None)
+
+    def _get_auto_schedule_module(self):
+        """Lazy-load ai/auto_schedule.py for batch generation."""
+        if hasattr(self, "_auto_schedule_module") and self._auto_schedule_module:
+            return self._auto_schedule_module
+
+        module_path = os.path.join(os.path.dirname(__file__), "ai", "auto_schedule.py")
+        spec = importlib.util.spec_from_file_location("auto_schedule", module_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self._auto_schedule_module = module
+        return module
         
     def browse_file(self):
         filename = filedialog.askopenfilename(
@@ -321,6 +339,307 @@ class AutomationGUI:
         except Exception as e:
             self.log_message(f"✗ Failed to open config dialog: {str(e)}", "ERROR")
             messagebox.showerror("Lỗi", f"Không thể mở cấu hình:\n{str(e)}")
+
+    def open_batch_editor(self):
+        """Open dialog to edit batch IDs and run auto scheduling."""
+        try:
+            auto_schedule = self._get_auto_schedule_module()
+            batch_path = os.path.join(os.path.dirname(__file__), "ai", "batch.txt")
+            slots_path = os.path.join(os.path.dirname(__file__), "ai", "slots_by_date.json")
+            default_output = os.path.join(os.path.dirname(__file__), "ai", "generated_schedule.csv")
+            available_procedures = sorted(list(config.thu_thuat_dur_mapper.keys()))
+
+            dialog = tk.Toplevel(self.root)
+            dialog.title("Batch IDs")
+            dialog.geometry("900x620")
+            dialog.resizable(True, True)
+            dialog.transient(self.root)
+            dialog.grab_set()
+
+            main_frame = ttk.Frame(dialog, padding="12")
+            main_frame.pack(fill="both", expand=True)
+            main_frame.columnconfigure(0, weight=1)
+            main_frame.rowconfigure(2, weight=1)
+
+            header_frame = ttk.Frame(main_frame)
+            header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E))
+            header_frame.columnconfigure(5, weight=1)
+
+            ttk.Label(header_frame, text=f"Batch file: {batch_path}").grid(
+                row=0, column=0, columnspan=6, sticky=tk.W, pady=(0, 6)
+            )
+
+            ttk.Label(header_frame, text="Ngày bắt đầu (DD-MM-YYYY):").grid(
+                row=1, column=0, sticky=tk.W
+            )
+            start_date_var = tk.StringVar(value=time.strftime("%d-%m-%Y"))
+            ttk.Entry(header_frame, textvariable=start_date_var, width=15).grid(
+                row=1, column=1, sticky=tk.W, padx=(5, 15)
+            )
+
+            ttk.Label(header_frame, text="Ngày kết thúc (DD-MM-YYYY):").grid(
+                row=1, column=2, sticky=tk.W
+            )
+            end_date_var = tk.StringVar(value=time.strftime("%d-%m-%Y"))
+            ttk.Entry(header_frame, textvariable=end_date_var, width=15).grid(
+                row=1, column=3, sticky=tk.W, padx=(5, 15)
+            )
+
+            ttk.Label(header_frame, text="Seed:").grid(row=1, column=4, sticky=tk.W)
+            seed_var = tk.StringVar(value="42")
+            ttk.Entry(header_frame, textvariable=seed_var, width=8).grid(
+                row=1, column=5, sticky=tk.W, padx=(5, 0)
+            )
+
+            ttk.Label(header_frame, text="Output CSV:").grid(
+                row=2, column=0, sticky=tk.W, pady=(6, 0)
+            )
+            output_var = tk.StringVar(value=default_output)
+            output_entry = ttk.Entry(header_frame, textvariable=output_var, width=60)
+            output_entry.grid(row=2, column=1, columnspan=4, sticky=(tk.W, tk.E), pady=(6, 0))
+            def browse_output():
+                filename = filedialog.asksaveasfilename(
+                    title="Lưu CSV",
+                    defaultextension=".csv",
+                    filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                )
+                if filename:
+                    output_var.set(filename)
+            ttk.Button(header_frame, text="Chọn...", command=browse_output).grid(
+                row=2, column=5, padx=(5, 0), pady=(6, 0)
+            )
+
+            # Scrollable table for batch rows
+            table_frame = ttk.Frame(main_frame)
+            table_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 5))
+            table_frame.columnconfigure(0, weight=1)
+            table_frame.rowconfigure(0, weight=1)
+
+            canvas = tk.Canvas(table_frame, height=280)
+            scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=canvas.yview)
+            inner = ttk.Frame(canvas)
+
+            inner.bind(
+                "<Configure>",
+                lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+            )
+
+            canvas.create_window((0, 0), window=inner, anchor="nw")
+            canvas.configure(yscrollcommand=scrollbar.set)
+
+            canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+            scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+
+            ttk.Label(inner, text="Patient ID").grid(row=0, column=0, padx=4, pady=2, sticky=tk.W)
+            for i in range(4):
+                ttk.Label(inner, text=f"Thủ thuật {i+1}").grid(row=0, column=1 + i, padx=4, pady=2, sticky=tk.W)
+            ttk.Label(inner, text="").grid(row=0, column=5, padx=4, pady=2)
+
+            rows = []
+
+            def refresh_row_positions():
+                for idx, row in enumerate(rows, start=1):
+                    row["id_entry"].grid_configure(row=idx)
+                    for j, combo in enumerate(row["proc_combos"]):
+                        combo.grid_configure(row=idx, column=1 + j)
+                    row["remove_btn"].grid_configure(row=idx, column=5)
+
+            def remove_row(row):
+                row["id_entry"].destroy()
+                for combo in row["proc_combos"]:
+                    combo.destroy()
+                row["remove_btn"].destroy()
+                rows.remove(row)
+                refresh_row_positions()
+
+            def add_row(patient_id="", procedures=None):
+                row_index = len(rows) + 1
+                id_var = tk.StringVar(value=patient_id)
+                id_entry = ttk.Entry(inner, textvariable=id_var, width=14)
+                id_entry.grid(row=row_index, column=0, padx=4, pady=2, sticky=tk.W)
+
+                proc_vars = []
+                proc_combos = []
+                for j in range(4):
+                    var = tk.StringVar()
+                    combo = ttk.Combobox(
+                        inner,
+                        textvariable=var,
+                        values=available_procedures,
+                        width=12,
+                        state="readonly",
+                    )
+                    combo.grid(row=row_index, column=1 + j, padx=4, pady=2, sticky=tk.W)
+                    if procedures and j < len(procedures):
+                        var.set(procedures[j])
+                    proc_vars.append(var)
+                    proc_combos.append(combo)
+
+                remove_btn = ttk.Button(inner, text="X", width=3)
+                row = {
+                    "id_var": id_var,
+                    "proc_vars": proc_vars,
+                    "id_entry": id_entry,
+                    "proc_combos": proc_combos,
+                    "remove_btn": remove_btn,
+                }
+                remove_btn.configure(command=lambda r=row: remove_row(r))
+                remove_btn.grid(row=row_index, column=5, padx=4, pady=2)
+                rows.append(row)
+
+            def load_from_lines(lines):
+                for row in list(rows):
+                    remove_row(row)
+                for line in lines:
+                    raw = line.strip()
+                    if not raw or raw.startswith("#"):
+                        continue
+                    parts = [p.strip() for p in raw.split(";")]
+                    if not parts:
+                        continue
+                    patient_id = parts[0]
+                    proc_list = []
+                    if len(parts) > 1 and parts[1]:
+                        proc_list = [p.strip() for p in parts[1].split("-") if p.strip()]
+                    add_row(patient_id, proc_list)
+
+            def load_default():
+                if os.path.exists(batch_path):
+                    with open(batch_path, "r", encoding="utf-8") as f:
+                        load_from_lines(f.readlines())
+                else:
+                    add_row()
+
+            def browse_and_load():
+                filename = filedialog.askopenfilename(
+                    title="Chọn file batch",
+                    filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+                )
+                if filename:
+                    with open(filename, "r", encoding="utf-8") as f:
+                        load_from_lines(f.readlines())
+
+            def collect_rows():
+                patients = []
+                errors = []
+                for idx, row in enumerate(rows, start=1):
+                    patient_id = row["id_var"].get().strip()
+                    procs = [v.get().strip() for v in row["proc_vars"]]
+                    if not patient_id and not any(procs):
+                        continue
+                    if not patient_id:
+                        errors.append(f"Dòng {idx}: thiếu Patient ID")
+                    if any(not p for p in procs):
+                        errors.append(f"Dòng {idx}: thiếu thủ thuật (cần đủ 4)")
+                    if patient_id and all(procs):
+                        patients.append({"patient_id": patient_id, "procedures": procs})
+                if errors:
+                    messagebox.showerror("Lỗi", "\n".join(errors))
+                    return None
+                return patients
+
+            def save_batch():
+                patients = collect_rows()
+                if patients is None:
+                    return
+                os.makedirs(os.path.dirname(batch_path), exist_ok=True)
+                with open(batch_path, "w", encoding="utf-8") as f:
+                    for patient in patients:
+                        line = f"{patient['patient_id']};" + "-".join(patient["procedures"])
+                        f.write(line + "\n")
+                messagebox.showinfo("Thành Công", f"Đã lưu batch.txt:\n{batch_path}")
+
+            def run_batch():
+                patients = collect_rows()
+                if patients is None or not patients:
+                    messagebox.showerror("Lỗi", "Vui lòng nhập ít nhất 1 Patient ID.")
+                    return
+
+                start_date = start_date_var.get().strip()
+                end_date = end_date_var.get().strip()
+                if not start_date or not end_date:
+                    messagebox.showerror("Lỗi", "Vui lòng nhập ngày bắt đầu và ngày kết thúc.")
+                    return
+
+                try:
+                    seed = int(seed_var.get().strip())
+                except ValueError:
+                    messagebox.showerror("Lỗi", "Seed phải là số nguyên.")
+                    return
+
+                slots_by_date = None
+                slots_by_procedure = None
+                time_slots = []
+
+                if os.path.exists(slots_path):
+                    with open(slots_path, "r", encoding="utf-8") as f:
+                        slots_payload = json.load(f)
+                    if auto_schedule.is_procedure_payload(slots_payload):
+                        slots_by_procedure = auto_schedule.normalize_proc_slots(slots_payload)
+                    else:
+                        slots_by_date = auto_schedule.read_slots_by_date(slots_payload)
+                else:
+                    time_slots = auto_schedule.normalize_time_slots(
+                        getattr(config, "AUTO_SCHEDULE_TIME_SLOTS", [])
+                    )
+
+                try:
+                    records = auto_schedule.generate_schedule_batch(
+                        patients=patients,
+                        procedures_default=None,
+                        start_date=start_date,
+                        end_date=end_date,
+                        time_slots=time_slots,
+                        slots_by_date=slots_by_date,
+                        slots_by_procedure=slots_by_procedure,
+                        slots_kind=getattr(config, "AUTO_SCHEDULE_TIME_SLOTS_KIND", "CD"),
+                        seed=seed,
+                    )
+                except Exception as e:
+                    messagebox.showerror("Lỗi", f"Không thể tạo lịch:\n{str(e)}")
+                    return
+
+                output_path = output_var.get().strip()
+                if output_path:
+                    try:
+                        export_data_to_csv(records, output_path)
+                    except Exception as e:
+                        messagebox.showerror("Lỗi", f"Không thể lưu CSV:\n{str(e)}")
+                        return
+
+                self.csv_data = records
+                if output_path:
+                    self.data_file_path.set(output_path)
+                self.merge_all_data()
+                self.update_data_table()
+                self.update_button_states()
+                self.log_message(f"✓ Generated {len(records)} records from batch IDs")
+                messagebox.showinfo("Thành Công", f"Đã tạo {len(records)} lịch hẹn.")
+
+            load_default()
+
+            actions_frame = ttk.Frame(main_frame)
+            actions_frame.grid(row=3, column=0, sticky=tk.W, pady=(6, 0))
+
+            ttk.Button(actions_frame, text="Thêm dòng", command=lambda: add_row()).grid(
+                row=0, column=0, padx=(0, 6)
+            )
+            ttk.Button(actions_frame, text="Đọc File...", command=browse_and_load).grid(
+                row=0, column=1, padx=(0, 6)
+            )
+            ttk.Button(actions_frame, text="Lưu batch.txt", command=save_batch).grid(
+                row=0, column=2, padx=(0, 6)
+            )
+            ttk.Button(actions_frame, text="Chạy batch", command=run_batch).grid(
+                row=0, column=3, padx=(0, 6)
+            )
+            ttk.Button(actions_frame, text="Đóng", command=dialog.destroy).grid(
+                row=0, column=4
+            )
+
+        except Exception as e:
+            self.log_message(f"✗ Failed to open batch editor: {str(e)}", "ERROR")
+            messagebox.showerror("Lỗi", f"Không thể mở batch editor:\n{str(e)}")
     
     def on_manual_entry_saved(self, data):
         """Callback when manual entry is saved."""
