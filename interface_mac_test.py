@@ -67,7 +67,7 @@ class AutomationGUI:
         
         # Configure grid weights
         main_frame.columnconfigure(1, weight=1)
-        main_frame.rowconfigure(4, weight=1)
+        main_frame.rowconfigure(2, weight=1)  # Data table row expands
         
         # Title
         title_label = ttk.Label(main_frame, text="Medical Data Automation Tool (Mac Test)", 
@@ -115,7 +115,7 @@ class AutomationGUI:
         self.data_tree = ttk.Treeview(data_table_frame, 
                                       columns=('ID', 'Date', 'Time', 'Procedures', 'Staff', 'Source'),
                                       show='headings',
-                                      height=6,
+                                      height=15,
                                       yscrollcommand=tree_scroll_y.set,
                                       xscrollcommand=tree_scroll_x.set)
         
@@ -262,21 +262,11 @@ class AutomationGUI:
                                font=('Arial', 9, 'bold'), foreground="red")
         hotkey_label.grid(row=0, column=0, sticky=tk.W)
         
-        # Log section
-        log_frame = ttk.LabelFrame(main_frame, text="Activity Log", padding="10")
-        log_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
-        log_frame.columnconfigure(0, weight=1)
-        log_frame.rowconfigure(0, weight=1)
+        # Hidden log widget (for backward compatibility with log_message calls)
+        # Log messages will be printed to console instead
+        self.log_text = scrolledtext.ScrolledText(main_frame, height=1, state='disabled')
+        # Don't grid it - keep it hidden
         
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=15, state='disabled')
-        self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        
-        # Clear log button
-        clear_log_btn = ttk.Button(log_frame, text="Xóa Nhật Ký", command=self.clear_log)
-        clear_log_btn.grid(row=1, column=0, sticky=tk.E, pady=(5, 0))
-        
-        
-
     def setup_hotkeys(self):
         """Setup global hotkey for emergency stop"""
         # Bind F12 key to emergency stop
@@ -394,7 +384,7 @@ class AutomationGUI:
             ttk.Label(header_frame, text="Output CSV:").grid(
                 row=2, column=0, sticky=tk.W, pady=(6, 0)
             )
-            output_var = tk.StringVar(value=default_output)
+            output_var = tk.StringVar(value="")
             output_entry = ttk.Entry(header_frame, textvariable=output_var, width=60)
             output_entry.grid(row=2, column=1, columnspan=4, sticky=(tk.W, tk.E), pady=(6, 0))
             def browse_output():
@@ -547,12 +537,20 @@ class AutomationGUI:
                 patients = collect_rows()
                 if patients is None:
                     return
-                os.makedirs(os.path.dirname(batch_path), exist_ok=True)
-                with open(batch_path, "w", encoding="utf-8") as f:
+                # Open file dialog to choose save location
+                filename = filedialog.asksaveasfilename(
+                    title="Lưu file batch",
+                    defaultextension=".txt",
+                    initialfile="batch.txt",
+                    filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+                )
+                if not filename:
+                    return
+                with open(filename, "w", encoding="utf-8") as f:
                     for patient in patients:
                         line = f"{patient['patient_id']};" + "-".join(patient["procedures"])
                         f.write(line + "\n")
-                messagebox.showinfo("Thành Công", f"Đã lưu batch.txt:\n{batch_path}")
+                messagebox.showinfo("Thành Công", f"Đã lưu batch file:\n{filename}")
 
             def run_batch():
                 patients = collect_rows()
@@ -636,7 +634,7 @@ class AutomationGUI:
             ttk.Button(actions_frame, text="Đọc File...", command=browse_and_load).grid(
                 row=0, column=1, padx=(0, 6)
             )
-            ttk.Button(actions_frame, text="Lưu batch.txt", command=save_batch).grid(
+            ttk.Button(actions_frame, text="Lưu batch...", command=save_batch).grid(
                 row=0, column=2, padx=(0, 6)
             )
             ttk.Button(actions_frame, text="Chạy batch", command=run_batch).grid(

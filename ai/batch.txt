@@ -1,16 +1,6 @@
 2505012345;xoa-điện-kéo-giác
 2505012346;xoa-điện-kéo-giác
-2505012347;xoa-điện-kéo-giác
-2505012348;xoa-điện-kéo-giác
 2505012349;điện-xoa-kéo-giác
 2505012350;điện-xoa-kéo-giác
-2505012351;điện-xoa-kéo-giác
-2505012352;điện-xoa-kéo-giác
 2605012345;xoa-điện-kéo-giác
 2605012346;xoa-điện-kéo-giác
-2605012347;xoa-điện-kéo-giác
-2605012348;xoa-điện-kéo-giác
-2605012349;điện-xoa-kéo-giác
-2605012350;điện-xoa-kéo-giác
-2605012351;điện-xoa-kéo-giác
-2605012352;điện-xoa-kéo-giác
