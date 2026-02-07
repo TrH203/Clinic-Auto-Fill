@@ -383,7 +383,7 @@ class AutomationGUI:
             )
 
             ttk.Label(header_frame, text="Seed:").grid(row=1, column=4, sticky=tk.W)
-            seed_var = tk.StringVar(value="42")
+            seed_var = tk.StringVar(value="")
             ttk.Entry(header_frame, textvariable=seed_var, width=8).grid(
                 row=1, column=5, sticky=tk.W, padx=(5, 0)
             )
@@ -433,6 +433,8 @@ class AutomationGUI:
             ttk.Label(inner, text="").grid(row=0, column=5, padx=4, pady=2)
 
             rows = []
+            # Store the last used procedure values to pre-fill new rows
+            last_procedures = [None, None, None, None]
 
             def refresh_row_positions():
                 for idx, row in enumerate(rows, start=1):
@@ -450,6 +452,12 @@ class AutomationGUI:
                 refresh_row_positions()
 
             def add_row(patient_id="", procedures=None):
+                nonlocal last_procedures
+                # If no procedures specified and there are existing rows, use last row's values
+                if procedures is None and rows:
+                    # Get procedures from the last row
+                    last_row = rows[-1]
+                    procedures = [v.get() for v in last_row["proc_vars"]]
                 row_index = len(rows) + 1
                 id_var = tk.StringVar(value=patient_id)
                 id_entry = ttk.Entry(inner, textvariable=id_var, width=14)
@@ -501,11 +509,8 @@ class AutomationGUI:
                     add_row(patient_id, proc_list)
 
             def load_default():
-                if os.path.exists(batch_path):
-                    with open(batch_path, "r", encoding="utf-8") as f:
-                        load_from_lines(f.readlines())
-                else:
-                    add_row()
+                # Always start with an empty row (disabled auto-load from batch.txt)
+                add_row()
 
             def browse_and_load():
                 filename = filedialog.askopenfilename(
@@ -558,11 +563,15 @@ class AutomationGUI:
                     messagebox.showerror("Lỗi", "Vui lòng nhập ngày bắt đầu và ngày kết thúc.")
                     return
 
-                try:
-                    seed = int(seed_var.get().strip())
-                except ValueError:
-                    messagebox.showerror("Lỗi", "Seed phải là số nguyên.")
-                    return
+                seed_str = seed_var.get().strip()
+                if seed_str:
+                    try:
+                        seed = int(seed_str)
+                    except ValueError:
+                        messagebox.showerror("Lỗi", "Seed phải là số nguyên hoặc để trống.")
+                        return
+                else:
+                    seed = None  # Random seed each time
 
                 slots_by_date = None
                 slots_by_procedure = None
