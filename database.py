@@ -319,8 +319,26 @@ def get_staff_dict():
 
 # ===== App Settings Functions =====
 
+def ensure_tables_exist():
+    """Ensure all required tables exist. Call this before any database operation."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # Create app_settings table if not exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )
+    """)
+    
+    conn.commit()
+    conn.close()
+
+
 def get_disabled_staff():
     """Get list of disabled staff from database."""
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT value FROM app_settings WHERE key = 'disabled_staff'")
