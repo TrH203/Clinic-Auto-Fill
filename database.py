@@ -78,6 +78,7 @@ def initialize_database():
 
 def save_manual_entry_to_db(patient_id, procedures, staff, appointment_date, appointment_time, notes=""):
     """Saves a manual entry to the database."""
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -92,6 +93,7 @@ def save_manual_entry_to_db(patient_id, procedures, staff, appointment_date, app
 
 def load_manual_entries_from_db():
     """Loads all manual entries from the database."""
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -243,6 +245,7 @@ def initialize_default_staff():
 
 def get_all_staff():
     """Get all staff members grouped by group_id."""
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -265,6 +268,7 @@ def get_all_staff():
 
 def get_staff_by_group(group_id):
     """Get staff members for a specific group."""
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -332,6 +336,53 @@ def ensure_tables_exist():
         )
     """)
     
+    # Create doctor_leaves table if not exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS doctor_leaves (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            staff_short_name TEXT NOT NULL,
+            leave_date TEXT NOT NULL,
+            session TEXT NOT NULL,
+            reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # Create coordinates table if not exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS coordinates (
+            name TEXT PRIMARY KEY,
+            x INTEGER NOT NULL,
+            y INTEGER NOT NULL,
+            description TEXT
+        )
+    """)
+    
+    # Create staff table if not exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS staff (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            short_name TEXT NOT NULL UNIQUE,
+            full_name TEXT NOT NULL,
+            group_id INTEGER NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # Create manual_entries table if not exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS manual_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            patient_id TEXT NOT NULL,
+            procedures TEXT NOT NULL,
+            staff TEXT NOT NULL,
+            appointment_date TEXT NOT NULL,
+            appointment_time TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            notes TEXT
+        )
+    """)
+    
     conn.commit()
     conn.close()
 
@@ -371,6 +422,7 @@ def set_disabled_staff(disabled_list):
 
 def get_window_title():
     """Get the target application window title."""
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT value FROM app_settings WHERE key = 'window_title'")
@@ -465,6 +517,7 @@ def set_last_used_procedures(procedures_list):
 
 def add_doctor_leave(staff_short_name, leave_date, session, reason=""):
     """Add a doctor leave record."""
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -479,6 +532,7 @@ def add_doctor_leave(staff_short_name, leave_date, session, reason=""):
 
 def get_all_doctor_leaves():
     """Get all doctor leave records."""
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("""
@@ -515,6 +569,7 @@ def check_staff_available(staff_short_name, date_str, time_str):
     Check if staff is available at the given date and time.
     Returns (is_available, reason)
     """
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     
@@ -616,6 +671,7 @@ def get_coordinate(name):
 
 def get_all_coordinates():
     """Get all coordinates. Returns dict with name as key and (x, y, description) as value."""
+    ensure_tables_exist()
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT name, x, y, description FROM coordinates ORDER BY name")
