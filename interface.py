@@ -114,7 +114,7 @@ class AutomationGUI:
         tree_scroll_x = ttk.Scrollbar(data_table_frame, orient="horizontal")
         
         self.data_tree = ttk.Treeview(data_table_frame, 
-                                      columns=('ID', 'Date', 'Time', 'Procedures', 'Staff', 'Source'),
+                                      columns=('isFirst', 'ID', 'Date', 'Time', 'Procedures', 'Staff'),
                                       show='headings',
                                       height=15,
                                       yscrollcommand=tree_scroll_y.set,
@@ -124,20 +124,20 @@ class AutomationGUI:
         tree_scroll_x.config(command=self.data_tree.xview)
         
         # Configure columns
+        self.data_tree.heading('isFirst', text='Đã TH')
         self.data_tree.heading('ID', text='Patient ID')
         self.data_tree.heading('Date', text='Date')
         self.data_tree.heading('Time', text='Time')
         self.data_tree.heading('Procedures', text='Procedures')
         self.data_tree.heading('Staff', text='Staff')
-        self.data_tree.heading('Source', text='Source')
         
         # Set smaller column widths for better fit on small screens
+        self.data_tree.column('isFirst', width=40, minwidth=35, anchor='center')
         self.data_tree.column('ID', width=85, minwidth=70, anchor='center')
         self.data_tree.column('Date', width=80, minwidth=70, anchor='center')
         self.data_tree.column('Time', width=50, minwidth=45, anchor='center')
         self.data_tree.column('Procedures', width=130, minwidth=100, anchor='w')
         self.data_tree.column('Staff', width=160, minwidth=120, anchor='w')
-        self.data_tree.column('Source', width=55, minwidth=50, anchor='center')
         
         # Grid layout for tree and scrollbars
         self.data_tree.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -146,6 +146,17 @@ class AutomationGUI:
         
         # Bind double-click to edit entry
         self.data_tree.bind('<Double-Button-1>', self.edit_entry)
+        # Bind single click on isFirst column to toggle
+        self.data_tree.bind('<Button-1>', self.on_tree_click)
+        # Enable multi-select with Ctrl/Shift
+        self.data_tree.configure(selectmode='extended')
+        
+        # Buttons for Check All / Uncheck All / Delete Selected
+        check_btn_frame = ttk.Frame(data_table_frame)
+        check_btn_frame.grid(row=2, column=0, sticky=tk.W, pady=(5, 0))
+        ttk.Button(check_btn_frame, text="☑ Chọn tất cả", command=self.check_all_isfirst).grid(row=0, column=0, padx=(0, 5))
+        ttk.Button(check_btn_frame, text="☐ Bỏ chọn tất cả", command=self.uncheck_all_isfirst).grid(row=0, column=1, padx=(0, 5))
+        ttk.Button(check_btn_frame, text="🗑️ Xóa đã chọn", command=self.delete_selected_rows).grid(row=0, column=2)
         
         
         # Connection section
@@ -764,9 +775,11 @@ class AutomationGUI:
             self.data_tree.delete(item)
         
         # Add CSV data
-        for record in self.csv_data:
+        for idx, record in enumerate(self.csv_data):
             patient_id = record.get('id', '')
             date = record.get('ngay', '')
+            is_first = record.get('isFirst', False)
+            is_first_display = '☑' if is_first else '☐'
             
             # Extract time from first thu_thuat
             time_str = ''
@@ -787,12 +800,14 @@ class AutomationGUI:
                     staff_set.add(staff_name)
             staff = ', '.join(sorted(staff_set))
             
-            self.data_tree.insert('', 'end', values=(patient_id, date, time_str, procedures, staff, 'CSV'))
+            self.data_tree.insert('', 'end', iid=f'csv_{idx}', values=(is_first_display, patient_id, date, time_str, procedures, staff))
         
         # Add manual data
-        for record in self.manual_data:
+        for idx, record in enumerate(self.manual_data):
             patient_id = record.get('id', '')
             date = record.get('ngay', '')
+            is_first = record.get('isFirst', False)
+            is_first_display = '☑' if is_first else '☐'
             
             # Extract time from first thu_thuat
             time_str = ''
@@ -813,7 +828,91 @@ class AutomationGUI:
                     staff_set.add(staff_name)
             staff = ', '.join(sorted(staff_set))
             
-            self.data_tree.insert('', 'end', values=(patient_id, date, time_str, procedures, staff, 'Manual'))
+            self.data_tree.insert('', 'end', iid=f'manual_{idx}', values=(is_first_display, patient_id, date, time_str, procedures, staff))
+    
+    def on_tree_click(self, event):
+        """Handle click on tree to toggle isFirst checkbox."""
+        region = self.data_tree.identify_region(event.x, event.y)
+        if region != 'cell':
+            return
+        
+        column = self.data_tree.identify_column(event.x)
+        # Column #1 is isFirst
+        if column != '#1':
+            return
+        
+        item = self.data_tree.identify_row(event.y)
+        if not item:
+            return
+        
+        # Toggle the isFirst value in the data
+        if item.startswith('csv_'):
+            idx = int(item.replace('csv_', ''))
+            if idx < len(self.csv_data):
+                current = self.csv_data[idx].get('isFirst', False)
+                self.csv_data[idx]['isFirst'] = not current
+        elif item.startswith('manual_'):
+            idx = int(item.replace('manual_', ''))
+            if idx < len(self.manual_data):
+                current = self.manual_data[idx].get('isFirst', False)
+                self.manual_data[idx]['isFirst'] = not current
+        
+        # Update table
+        self.merge_all_data()
+        self.update_data_table()
+    
+    def check_all_isfirst(self):
+        """Set isFirst to True for all records."""
+        for record in self.csv_data:
+            record['isFirst'] = True
+        for record in self.manual_data:
+            record['isFirst'] = True
+        self.merge_all_data()
+        self.update_data_table()
+    
+    def uncheck_all_isfirst(self):
+        """Set isFirst to False for all records."""
+        for record in self.csv_data:
+            record['isFirst'] = False
+        for record in self.manual_data:
+            record['isFirst'] = False
+        self.merge_all_data()
+        self.update_data_table()
+    
+    def delete_selected_rows(self):
+        """Delete selected rows from the table."""
+        selected = self.data_tree.selection()
+        if not selected:
+            messagebox.showwarning("Chưa chọn", "Vui lòng chọn các hàng cần xóa.\n(Giữ Ctrl hoặc Shift để chọn nhiều hàng)")
+            return
+        
+        if not messagebox.askyesno("Xác nhận", f"Bạn có chắc muốn xóa {len(selected)} hàng đã chọn?"):
+            return
+        
+        # Collect indices to delete (in reverse order to avoid index shifting)
+        csv_to_delete = []
+        manual_to_delete = []
+        
+        for item in selected:
+            if item.startswith('csv_'):
+                idx = int(item.replace('csv_', ''))
+                csv_to_delete.append(idx)
+            elif item.startswith('manual_'):
+                idx = int(item.replace('manual_', ''))
+                manual_to_delete.append(idx)
+        
+        # Delete in reverse order to maintain correct indices
+        for idx in sorted(csv_to_delete, reverse=True):
+            if idx < len(self.csv_data):
+                del self.csv_data[idx]
+        
+        for idx in sorted(manual_to_delete, reverse=True):
+            if idx < len(self.manual_data):
+                del self.manual_data[idx]
+        
+        self.merge_all_data()
+        self.update_data_table()
+        self.log_message(f"✓ Đã xóa {len(selected)} hàng")
             
     
     def export_to_csv(self):
