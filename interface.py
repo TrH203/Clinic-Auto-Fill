@@ -274,10 +274,13 @@ class AutomationGUI:
                                font=('Arial', 9, 'bold'), foreground="red")
         hotkey_label.grid(row=0, column=0, sticky=tk.W)
         
-        # Hidden log widget (for backward compatibility with log_message calls)
-        # Log messages will be printed to console instead
-        self.log_text = scrolledtext.ScrolledText(main_frame, height=1, state='disabled')
-        # Don't grid it - keep it hidden
+        # Log section
+        log_frame = ttk.LabelFrame(main_frame, text="Activity Log", padding="5")
+        log_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 5))
+        log_frame.columnconfigure(0, weight=1)
+
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=3, state='disabled')
+        self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E))
         
 
 
