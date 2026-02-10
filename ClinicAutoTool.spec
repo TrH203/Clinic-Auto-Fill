@@ -9,6 +9,7 @@ a = Analysis(
     datas=[
         ('staff_group_1.json', '.'),
         ('staff_group_2.json', '.'),
+        ('VERSION', '.'),
     ],
     hiddenimports=[
         'pywinauto',

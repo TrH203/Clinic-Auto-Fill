@@ -45,32 +45,6 @@ jobs:
         tag_name: ${{ github.ref_name }}
         name: Release ${{ github.ref_name }}
         draft: false
-        body: |
-          ## What's New in ${{ github.ref_name }}
-          
-          ### Features
-          - ✨ Manual data entry dialog
-          - 🔄 Enhanced auto-update with changelog display
-          - 💾 Database storage for manual entries
-          
-          ### Improvements
-          - ⚡ Semantic version comparison
-          - 🛡️ Automatic backup before updates
-          - 📊 Merge CSV and manual data seamlessly
-          - 🐛 Fixed pandas build issues with PyInstaller
-          
-          ### Installation
-          1. Download `ClinicAutoTool-${{ github.ref_name }}.exe` below
-          2. Run the .exe file on Windows
-          3. The app will auto-update on future releases
-          
-          ### System Requirements
-          - Windows 10 or later
-          - No installation needed - just run the .exe
-          
-          ---
-          
-          **Full Changelog**: https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}
         files: |
           dist/ClinicAutoTool-${{ github.ref_name }}.exe
       env:

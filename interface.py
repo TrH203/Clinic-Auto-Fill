@@ -16,13 +16,14 @@ from database import initialize_database, load_manual_entries_from_db, get_windo
 from pywinauto import Application, Desktop
 from manual_entry import ManualEntryDialog
 from config import PATIENT_ROW, TIEP
+from updater import get_current_version, check_for_update, download_update, apply_update_windows
 
 GITHUB_REPO = "TrH203/Clinic-Auto-Fill"
 
 class AutomationGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title(f"Medical Data Automation Tool")
+        self.root.title(f"Medical Data Automation Tool v{get_current_version()}")
         self.root.geometry("1000x850")  # Increased size to fit all content
         # Set minimum size to prevent UI breaking
         self.root.minsize(950, 800)
@@ -56,8 +57,10 @@ class AutomationGUI:
         
         # Auto-load data if available
         self.auto_load_data()
-        
-        
+
+        # Check for updates in background (non-blocking)
+        threading.Thread(target=self._startup_update_check, daemon=True).start()
+
     def setup_ui(self):
         # Use direct frame instead of canvas for better layout
         main_frame = ttk.Frame(self.root, padding="10")
@@ -96,7 +99,10 @@ class AutomationGUI:
         
         validate_btn = ttk.Button(file_frame, text="🛡️ Kiểm Tra Dữ Liệu", command=self.validate_data)
         validate_btn.grid(row=0, column=6)
-        
+
+        update_btn = ttk.Button(file_frame, text="Cap Nhat", command=self.check_for_updates)
+        update_btn.grid(row=0, column=7, padx=(5, 0))
+
         # Data display table
         data_table_frame = ttk.LabelFrame(main_frame, text="Loaded Data", padding="10")
         data_table_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(10, 10))
@@ -921,6 +927,84 @@ class AutomationGUI:
             else:
                 self.log_message("⏹️ Automation stopped")
                 
+    # ===== Auto-Update Methods =====
+
+    def _startup_update_check(self):
+        """Background check for updates on app startup."""
+        try:
+            update_info = check_for_update(get_current_version(), GITHUB_REPO)
+            if update_info:
+                self.root.after(0, lambda: self._show_update_dialog(update_info))
+        except Exception:
+            pass
+
+    def check_for_updates(self):
+        """Manual update check triggered by button."""
+        self.log_message("Checking for updates...")
+        threading.Thread(target=self._do_check_for_updates, daemon=True).start()
+
+    def _do_check_for_updates(self):
+        """Worker thread for manual update check."""
+        try:
+            update_info = check_for_update(get_current_version(), GITHUB_REPO)
+            if update_info:
+                self.root.after(0, lambda: self._show_update_dialog(update_info))
+            else:
+                self.root.after(0, lambda: [
+                    self.log_message("You're up to date!"),
+                    messagebox.showinfo("Cap Nhat", f"Ban dang dung phien ban moi nhat v{get_current_version()}!")
+                ])
+        except Exception as e:
+            self.root.after(0, lambda: self.log_message(f"Could not check for updates: {e}"))
+
+    def _show_update_dialog(self, update_info):
+        """Show update available dialog on the main thread."""
+        changelog = update_info['changelog']
+        if len(changelog) > 500:
+            changelog = changelog[:500] + "..."
+
+        result = messagebox.askyesno(
+            "Phien Ban Moi",
+            f"Phien ban v{update_info['version']} da co!\n\n"
+            f"{changelog}\n\n"
+            f"Cap nhat ngay?"
+        )
+        if result:
+            threading.Thread(target=self._do_update, args=(update_info,), daemon=True).start()
+
+    def _do_update(self, update_info):
+        """Download and apply the update."""
+        try:
+            current_exe = sys.executable
+            new_exe = current_exe + ".new"
+
+            def on_progress(downloaded_mb, total_mb):
+                msg = f"Downloading update... {downloaded_mb:.1f}/{total_mb:.1f} MB"
+                self.root.after(0, lambda: self.log_message(msg))
+
+            self.root.after(0, lambda: self.log_message(f"Downloading v{update_info['version']}..."))
+
+            success = download_update(update_info['download_url'], new_exe, progress_callback=on_progress)
+
+            if success:
+                self.root.after(0, lambda: self.log_message("Download complete. Restarting to apply update..."))
+                # Give the log message time to display
+                import time
+                time.sleep(1)
+                apply_update_windows(new_exe, current_exe)
+            else:
+                self.root.after(0, lambda: [
+                    self.log_message("Update download failed."),
+                    messagebox.showerror("Loi Cap Nhat", "Khong the tai ban cap nhat. Vui long thu lai sau.")
+                ])
+        except Exception as e:
+            self.root.after(0, lambda: [
+                self.log_message(f"Update failed: {e}"),
+                messagebox.showerror("Loi Cap Nhat", f"Cap nhat that bai:\n{e}")
+            ])
+
+    # ===== End Auto-Update Methods =====
+
     def check_queue(self):
         """Check for messages from worker thread"""
         try:
@@ -931,7 +1015,7 @@ class AutomationGUI:
             pass
         finally:
             self.root.after(100, self.check_queue)
-            
+
     def log_message(self, message, level="INFO"):
         timestamp = time.strftime("%H:%M:%S")
         formatted_message = f"[{timestamp}] {message}\n"
