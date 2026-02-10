@@ -383,6 +383,18 @@ def ensure_tables_exist():
         )
     """)
     
+    # Create weekly_leaves table if not exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS weekly_leaves (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            staff_short_name TEXT NOT NULL,
+            day_of_week INTEGER NOT NULL,
+            session TEXT NOT NULL,
+            reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
     conn.commit()
     conn.close()
 
@@ -567,24 +579,11 @@ def delete_doctor_leave(leave_id):
 def check_staff_available(staff_short_name, date_str, time_str):
     """
     Check if staff is available at the given date and time.
+    Checks both specific date leaves and weekly recurring leaves.
     Returns (is_available, reason)
     """
     ensure_tables_exist()
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-    
-    cursor.execute("""
-        SELECT session FROM doctor_leaves
-        WHERE staff_short_name = ? AND trim(leave_date) = ?
-    """, (staff_short_name, date_str.strip()))
-    
-    result = cursor.fetchone()
-    conn.close()
-    
-    if not result:
-        return (True, "")
-    
-    leave_session = result[0]
+    from datetime import datetime
     
     # Determine appointment session from time
     try:
@@ -598,14 +597,135 @@ def check_staff_available(staff_short_name, date_str, time_str):
     except:
         return (True, "")
     
-    # Check if leave conflicts with appointment
-    if leave_session == "full_day":
-        return (False, "Cả ngày")
-    elif leave_session == appt_session:
-        session_vn = "Sáng" if appt_session == "morning" else "Chiều"
-        return (False, session_vn)
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
     
+    # Check specific date leaves
+    cursor.execute("""
+        SELECT session FROM doctor_leaves
+        WHERE staff_short_name = ? AND trim(leave_date) = ?
+    """, (staff_short_name, date_str.strip()))
+    
+    result = cursor.fetchone()
+    
+    if result:
+        leave_session = result[0]
+        if leave_session == "full_day":
+            conn.close()
+            return (False, "Nghỉ cả ngày")
+        elif leave_session == appt_session:
+            session_vn = "Nghỉ sáng" if appt_session == "morning" else "Nghỉ chiều"
+            conn.close()
+            return (False, session_vn)
+    
+    # Check weekly recurring leaves
+    try:
+        # Parse date to get day of week (Monday=0, Sunday=6)
+        if '-' in date_str and len(date_str.split('-')[0]) == 4:
+            # Format: YYYY-MM-DD
+            date_obj = datetime.strptime(date_str.strip(), "%Y-%m-%d")
+        else:
+            # Format: DD-MM-YYYY
+            date_obj = datetime.strptime(date_str.strip(), "%d-%m-%Y")
+        
+        day_of_week = date_obj.weekday()  # Monday=0, Sunday=6
+        
+        cursor.execute("""
+            SELECT session FROM weekly_leaves
+            WHERE staff_short_name = ? AND day_of_week = ?
+        """, (staff_short_name, day_of_week))
+        
+        weekly_result = cursor.fetchone()
+        
+        if weekly_result:
+            weekly_session = weekly_result[0]
+            day_names = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"]
+            day_name = day_names[day_of_week]
+            
+            if weekly_session == "full_day":
+                conn.close()
+                return (False, f"Nghỉ {day_name} hằng tuần")
+            elif weekly_session == appt_session:
+                session_vn = "sáng" if appt_session == "morning" else "chiều"
+                conn.close()
+                return (False, f"Nghỉ {day_name} {session_vn} hằng tuần")
+    except:
+        pass
+    
+    conn.close()
     return (True, "")
+
+
+# ===== Weekly Leave Functions =====
+
+def add_weekly_leave(staff_short_name, day_of_week, session, reason=""):
+    """Add a weekly recurring leave record.
+    
+    Args:
+        staff_short_name: Staff identifier
+        day_of_week: 0=Monday, 1=Tuesday, ..., 6=Sunday
+        session: 'morning', 'afternoon', or 'full_day'
+        reason: Optional reason text
+    """
+    ensure_tables_exist()
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO weekly_leaves (staff_short_name, day_of_week, session, reason)
+        VALUES (?, ?, ?, ?)
+    """, (staff_short_name, day_of_week, session, reason))
+    conn.commit()
+    leave_id = cursor.lastrowid
+    conn.close()
+    return leave_id
+
+
+def get_all_weekly_leaves():
+    """Get all weekly leave records."""
+    ensure_tables_exist()
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, staff_short_name, day_of_week, session, reason
+        FROM weekly_leaves
+        ORDER BY staff_short_name, day_of_week
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+    
+    leaves = []
+    for row in rows:
+        leaves.append({
+            'id': row[0],
+            'staff_short_name': row[1],
+            'day_of_week': row[2],
+            'session': row[3],
+            'reason': row[4] if row[4] else ""
+        })
+    return leaves
+
+
+def delete_weekly_leave(leave_id):
+    """Delete a weekly leave record."""
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM weekly_leaves WHERE id = ?", (leave_id,))
+    conn.commit()
+    conn.close()
+
+
+def get_weekly_leaves_for_staff(staff_short_name):
+    """Get weekly leaves for a specific staff member."""
+    ensure_tables_exist()
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT day_of_week, session FROM weekly_leaves
+        WHERE staff_short_name = ?
+    """, (staff_short_name,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows  # List of (day_of_week, session) tuples
 
 
 # ===== Coordinates Management Functions =====
