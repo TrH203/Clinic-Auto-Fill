@@ -12,7 +12,7 @@ class ConfigDialog:
         self.parent = parent
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Configuration")
-        self.dialog.geometry("800x650")  # Increased from 600 to 800 for two columns
+        self.dialog.geometry("1000x750")  # Increased from 800x650 for better Mac visibility
         self.dialog.resizable(False, False)
         
         # Make dialog modal
@@ -551,6 +551,12 @@ class ConfigDialog:
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
         
+        # Horizontal scrollbar
+        h_scrollbar = ttk.Scrollbar(canvas_container, orient="horizontal", command=canvas.xview)
+        canvas.configure(xscrollcommand=h_scrollbar.set)
+        
+        # Layout scrollbars and canvas
+        h_scrollbar.pack(side="bottom", fill="x")
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
         
