@@ -102,11 +102,11 @@ class AutomationGUI:
         validate_btn = ttk.Button(file_frame, text="🛡️ Kiểm Tra Dữ Liệu", command=self.validate_data)
         validate_btn.grid(row=0, column=6)
 
-        update_btn = ttk.Button(file_frame, text="Cập Nhật", command=self.check_for_updates)
-        update_btn.grid(row=0, column=7, padx=(5, 0))
+        # batch_btn = ttk.Button(file_frame, text="🧾 Batch IDs", command=self.open_batch_editor)
+        # batch_btn.grid(row=0, column=7, padx=(5, 0))
 
-        batch_btn = ttk.Button(file_frame, text="🧾 Batch IDs", command=self.open_batch_editor)
-        batch_btn.grid(row=0, column=7, padx=(5, 0))
+        update_btn = ttk.Button(file_frame, text="Cập Nhật", command=self.check_for_updates)
+        update_btn.grid(row=0, column=8, padx=(5, 0))
         
         # Data display table
         data_table_frame = ttk.LabelFrame(main_frame, text="Loaded Data", padding="10")
