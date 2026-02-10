@@ -10,6 +10,7 @@ a = Analysis(
         ('staff_group_1.json', '.'),
         ('staff_group_2.json', '.'),
         ('VERSION', '.'),
+        ('ai', 'ai'),  # Include entire ai directory
     ],
     hiddenimports=[
         'pywinauto',

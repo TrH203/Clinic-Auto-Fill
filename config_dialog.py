@@ -4,7 +4,8 @@ from datetime import datetime
 import config
 from database import (get_disabled_staff, set_disabled_staff, add_doctor_leave, 
                       get_all_doctor_leaves, delete_doctor_leave, get_all_staff,
-                      add_staff, delete_staff)
+                      add_staff, delete_staff, add_weekly_leave, 
+                      get_all_weekly_leaves, delete_weekly_leave)
 
 class ConfigDialog:
     def __init__(self, parent):
@@ -154,16 +155,31 @@ class ConfigDialog:
         save_btn.pack(pady=(15, 0))
     
     def setup_leave_tab(self, notebook):
-        """Setup the leave schedule tab."""
-        leave_frame = ttk.Frame(notebook, padding="15")
+        """Setup the leave schedule tab with sub-notebook for date and weekly leaves."""
+        leave_frame = ttk.Frame(notebook, padding="10")
         notebook.add(leave_frame, text="Lịch Nghỉ")
         
+        # Create sub-notebook for different leave types
+        leave_notebook = ttk.Notebook(leave_frame)
+        leave_notebook.pack(fill="both", expand=True)
+        
+        # Tab 1: Date-specific leaves
+        self.setup_date_leave_section(leave_notebook)
+        
+        # Tab 2: Weekly recurring leaves
+        self.setup_weekly_leave_section(leave_notebook)
+    
+    def setup_date_leave_section(self, notebook):
+        """Setup section for date-specific leaves."""
+        date_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(date_frame, text="Nghỉ Theo Ngày")
+        
         # Add leave section
-        add_frame = ttk.LabelFrame(leave_frame, text="Thêm Lịch Nghỉ", padding="10")
-        add_frame.pack(fill="x", pady=(0, 15))
+        add_frame = ttk.LabelFrame(date_frame, text="Thêm Lịch Nghỉ", padding="10")
+        add_frame.pack(fill="x", pady=(0, 10))
         
         # Doctor selection
-        ttk.Label(add_frame, text="Bác Sĩ:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        ttk.Label(add_frame, text="Nhân viên:").grid(row=0, column=0, sticky=tk.W, pady=5)
         self.leave_staff_var = tk.StringVar()
         staff_combo = ttk.Combobox(add_frame, textvariable=self.leave_staff_var, 
                                    values=sorted([f"{v} ({k})" for k, v in config.map_ys_bs.items()]),
@@ -197,13 +213,13 @@ class ConfigDialog:
         reason_entry.grid(row=3, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
         
         # Add button
-        add_btn = ttk.Button(add_frame, text="Thêm Lịch Nghỉ", command=self.add_leave)
+        add_btn = ttk.Button(add_frame, text="➕ Thêm Lịch Nghỉ", command=self.add_leave)
         add_btn.grid(row=4, column=1, pady=(10, 0))
         
         add_frame.columnconfigure(1, weight=1)
         
         # Current leaves section
-        leaves_frame = ttk.LabelFrame(leave_frame, text="Danh Sách Lịch Nghỉ", padding="10")
+        leaves_frame = ttk.LabelFrame(date_frame, text="Danh Sách Lịch Nghỉ Theo Ngày", padding="10")
         leaves_frame.pack(fill="both", expand=True)
         
         # Treeview for leaves
@@ -211,16 +227,16 @@ class ConfigDialog:
         tree_frame.pack(fill="both", expand=True)
         
         columns = ("Doctor", "Date", "Session", "Reason")
-        self.leave_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=10)
+        self.leave_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=8)
         
-        self.leave_tree.heading("Doctor", text="Doctor")
-        self.leave_tree.heading("Date", text="Date")
-        self.leave_tree.heading("Session", text="Session")
-        self.leave_tree.heading("Reason", text="Reason")
+        self.leave_tree.heading("Doctor", text="Nhân viên")
+        self.leave_tree.heading("Date", text="Ngày")
+        self.leave_tree.heading("Session", text="Buổi")
+        self.leave_tree.heading("Reason", text="Lý do")
         
         self.leave_tree.column("Doctor", width=150)
         self.leave_tree.column("Date", width=100)
-        self.leave_tree.column("Session", width=100)
+        self.leave_tree.column("Session", width=80)
         self.leave_tree.column("Reason", width=150)
         
         tree_scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=self.leave_tree.yview)
@@ -230,11 +246,95 @@ class ConfigDialog:
         tree_scroll.pack(side="right", fill="y")
         
         # Delete button
-        delete_btn = ttk.Button(leaves_frame, text="Xóa Đã Chọn", command=self.delete_leave)
+        delete_btn = ttk.Button(leaves_frame, text="🗑️ Xóa Đã Chọn", command=self.delete_leave)
         delete_btn.pack(pady=(10, 0))
         
         # Load leaves
         self.refresh_leaves()
+    
+    def setup_weekly_leave_section(self, notebook):
+        """Setup section for weekly recurring leaves."""
+        weekly_frame = ttk.Frame(notebook, padding="10")
+        notebook.add(weekly_frame, text="Nghỉ Hằng Tuần")
+        
+        # Add weekly leave section
+        add_frame = ttk.LabelFrame(weekly_frame, text="Thêm Lịch Nghỉ Hằng Tuần", padding="10")
+        add_frame.pack(fill="x", pady=(0, 10))
+        
+        # Staff selection
+        ttk.Label(add_frame, text="Nhân viên:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        self.weekly_staff_var = tk.StringVar()
+        staff_combo = ttk.Combobox(add_frame, textvariable=self.weekly_staff_var, 
+                                   values=sorted([f"{v} ({k})" for k, v in config.map_ys_bs.items()]),
+                                   width=30)
+        staff_combo.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        
+        # Day of week selection
+        ttk.Label(add_frame, text="Thứ:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        self.weekly_day_var = tk.StringVar()
+        day_values = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
+        day_combo = ttk.Combobox(add_frame, textvariable=self.weekly_day_var, 
+                                 values=day_values, width=30, state="readonly")
+        day_combo.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        day_combo.current(0)
+        
+        # Session
+        ttk.Label(add_frame, text="Buổi:").grid(row=2, column=0, sticky=tk.W, pady=5)
+        self.weekly_session_var = tk.StringVar(value="morning")
+        session_frame = ttk.Frame(add_frame)
+        session_frame.grid(row=2, column=1, sticky=tk.W, pady=5, padx=(10, 0))
+        ttk.Radiobutton(session_frame, text="Sáng (7h-12h)", variable=self.weekly_session_var, 
+                       value="morning").pack(side="left", padx=(0, 10))
+        ttk.Radiobutton(session_frame, text="Chiều (13h-17h)", variable=self.weekly_session_var, 
+                       value="afternoon").pack(side="left", padx=(0, 10))
+        ttk.Radiobutton(session_frame, text="Cả ngày", variable=self.weekly_session_var, 
+                       value="full_day").pack(side="left")
+        
+        # Reason
+        ttk.Label(add_frame, text="Lý Do:").grid(row=3, column=0, sticky=tk.W, pady=5)
+        self.weekly_reason_var = tk.StringVar()
+        reason_entry = ttk.Entry(add_frame, textvariable=self.weekly_reason_var, width=32)
+        reason_entry.grid(row=3, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
+        
+        # Add button
+        add_btn = ttk.Button(add_frame, text="➕ Thêm Lịch Nghỉ Hằng Tuần", command=self.add_weekly_leave)
+        add_btn.grid(row=4, column=1, pady=(10, 0))
+        
+        add_frame.columnconfigure(1, weight=1)
+        
+        # Current weekly leaves section
+        leaves_frame = ttk.LabelFrame(weekly_frame, text="Danh Sách Lịch Nghỉ Hằng Tuần", padding="10")
+        leaves_frame.pack(fill="both", expand=True)
+        
+        # Treeview for weekly leaves
+        tree_frame = ttk.Frame(leaves_frame)
+        tree_frame.pack(fill="both", expand=True)
+        
+        columns = ("Doctor", "Day", "Session", "Reason")
+        self.weekly_tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=8)
+        
+        self.weekly_tree.heading("Doctor", text="Nhân viên")
+        self.weekly_tree.heading("Day", text="Thứ")
+        self.weekly_tree.heading("Session", text="Buổi")
+        self.weekly_tree.heading("Reason", text="Lý do")
+        
+        self.weekly_tree.column("Doctor", width=150)
+        self.weekly_tree.column("Day", width=100)
+        self.weekly_tree.column("Session", width=80)
+        self.weekly_tree.column("Reason", width=150)
+        
+        tree_scroll = ttk.Scrollbar(tree_frame, orient="vertical", command=self.weekly_tree.yview)
+        self.weekly_tree.configure(yscrollcommand=tree_scroll.set)
+        
+        self.weekly_tree.pack(side="left", fill="both", expand=True)
+        tree_scroll.pack(side="right", fill="y")
+        
+        # Delete button
+        delete_btn = ttk.Button(leaves_frame, text="🗑️ Xóa Đã Chọn", command=self.delete_weekly_leave_ui)
+        delete_btn.pack(pady=(10, 0))
+        
+        # Load weekly leaves
+        self.refresh_weekly_leaves()
     
     def add_leave(self):
         """Add a new leave record."""
@@ -321,6 +421,93 @@ class ConfigDialog:
             self.leave_tree.insert("", "end", values=(
                 full_name,
                 date_display,
+                session_text,
+                leave['reason'],
+                leave['id']  # Hidden
+            ))
+    
+    def add_weekly_leave(self):
+        """Add a new weekly recurring leave record."""
+        try:
+            # Validate inputs
+            staff_selection = self.weekly_staff_var.get()
+            if not staff_selection:
+                messagebox.showerror("Lỗi", "Vui lòng chọn nhân viên")
+                return
+            
+            # Extract short name from selection "Full Name (short)"
+            short_name = staff_selection.split("(")[1].strip(")")
+            
+            # Get day of week (0=Monday, ..., 6=Sunday)
+            day_names = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ Nhật"]
+            day_str = self.weekly_day_var.get()
+            if day_str not in day_names:
+                messagebox.showerror("Lỗi", "Vui lòng chọn thứ")
+                return
+            day_of_week = day_names.index(day_str)
+            
+            session = self.weekly_session_var.get()
+            reason = self.weekly_reason_var.get().strip()
+            
+            # Add to database
+            add_weekly_leave(short_name, day_of_week, session, reason)
+            
+            # Refresh list
+            self.refresh_weekly_leaves()
+            
+            # Clear form
+            self.weekly_reason_var.set("")
+            
+            messagebox.showinfo("Thành Công", f"Thêm lịch nghỉ hằng tuần: {day_str}")
+            
+        except Exception as e:
+            messagebox.showerror("Lỗi", f"Không thể thêm lịch nghỉ hằng tuần:\n{str(e)}")
+    
+    def delete_weekly_leave_ui(self):
+        """Delete selected weekly leave."""
+        selection = self.weekly_tree.selection()
+        if not selection:
+            messagebox.showwarning("Cảnh Báo", "Vui lòng chọn lịch nghỉ để xóa")
+            return
+        
+        item = selection[0]
+        leave_id = self.weekly_tree.item(item, "values")[4]  # Hidden column
+        
+        if messagebox.askyesno("Xác Nhận", "Xóa bản ghi lịch nghỉ hằng tuần này?"):
+            delete_weekly_leave(int(leave_id))
+            self.refresh_weekly_leaves()
+            messagebox.showinfo("Thành Công", "Đã xóa lịch nghỉ hằng tuần")
+    
+    def refresh_weekly_leaves(self):
+        """Refresh the weekly leave tree with current data."""
+        # Clear existing
+        for item in self.weekly_tree.get_children():
+            self.weekly_tree.delete(item)
+        
+        # Load from database
+        leaves = get_all_weekly_leaves()
+        
+        day_names = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"]
+        session_map = {
+            "morning": "Sáng",
+            "afternoon": "Chiều",
+            "full_day": "Cả ngày"
+        }
+        
+        for leave in leaves:
+            # Get full name from short name
+            full_name = config.map_ys_bs.get(leave['staff_short_name'], leave['staff_short_name'])
+            
+            # Format day of week
+            day_text = day_names[leave['day_of_week']] if leave['day_of_week'] < len(day_names) else str(leave['day_of_week'])
+            
+            # Format session
+            session_text = session_map.get(leave['session'], leave['session'])
+            
+            # Insert with ID as hidden value
+            self.weekly_tree.insert("", "end", values=(
+                full_name,
+                day_text,
                 session_text,
                 leave['reason'],
                 leave['id']  # Hidden

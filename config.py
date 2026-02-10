@@ -37,6 +37,14 @@ thu_thuat_ability_mapper = {
     "cứu": "ys",
 }
 
+# Auto-scheduling time slots.
+# Provide times as "HH:MM". By default these are "Ngay CD" times.
+# If you supply "Ngay BD TH" times instead, set AUTO_SCHEDULE_TIME_SLOTS_KIND = "BD_TH".
+AUTO_SCHEDULE_TIME_SLOTS_KIND = "CD"
+AUTO_SCHEDULE_TIME_SLOTS = [
+    # "07:00",
+]
+
 DICH_VU_THU_THUAT = [
     (700,152),
     (700,172),
@@ -239,4 +247,3 @@ def reload_staff():
 # # List of disabled/excluded staff members (lowercase short names as keys in map_ys_bs)
 # # Staff in this list will not appear in manual entry and will cause errors during automation
 # disabled_staff = ["diệu"]
-
