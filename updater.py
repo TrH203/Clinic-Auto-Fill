@@ -121,6 +121,7 @@ if errorlevel 1 (
     goto :eof
 )
 
+timeout /t 3 /nobreak >nul
 start "" "%OLD_EXE%"
 del "%~f0"
 '''
