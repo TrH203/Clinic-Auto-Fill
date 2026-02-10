@@ -39,7 +39,7 @@ def check_for_update(current_version, repo):
         if not remote_version:
             return None
 
-        if parse_version(remote_version) <= parse_version(current_version):
+        if parse_version(remote_version) == parse_version(current_version):
             return None
 
         # Find the .exe asset
