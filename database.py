@@ -3,11 +3,69 @@ import os
 
 DATABASE_FILE = "app_data.db"
 
+
+# ===== Schema Migration System =====
+#
+# HOW TO ADD A NEW MIGRATION:
+# 1. Write a function: def migrate_vN(conn):  (where N = next number)
+# 2. Inside it, run your ALTER TABLE / CREATE TABLE / etc.
+# 3. Append it to the MIGRATIONS list below.
+# That's it. The app will auto-apply it on next startup, no data loss.
+#
+# Examples:
+#   def migrate_v2(conn):
+#       conn.execute("ALTER TABLE manual_entries ADD COLUMN phone TEXT DEFAULT ''")
+#
+#   def migrate_v3(conn):
+#       conn.execute("ALTER TABLE staff ADD COLUMN role TEXT DEFAULT 'ktv'")
+#
+#   def migrate_v4(conn):
+#       # To remove a column in SQLite: recreate the table without it
+#       conn.execute("CREATE TABLE staff_new AS SELECT id, short_name, full_name, group_id FROM staff")
+#       conn.execute("DROP TABLE staff")
+#       conn.execute("ALTER TABLE staff_new RENAME TO staff")
+
+MIGRATIONS = [
+    # migrate_v2,
+    # migrate_v3,
+]
+
+
+def _get_schema_version(conn):
+    """Get the current schema version from app_settings."""
+    try:
+        cursor = conn.execute("SELECT value FROM app_settings WHERE key = 'schema_version'")
+        row = cursor.fetchone()
+        return int(row[0]) if row else 0
+    except Exception:
+        return 0
+
+
+def _set_schema_version(conn, version):
+    """Set the schema version in app_settings."""
+    conn.execute(
+        "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('schema_version', ?)",
+        (str(version),)
+    )
+
+
+def _run_migrations(conn):
+    """Apply any pending migrations."""
+    current = _get_schema_version(conn)
+    # Schema version 1 = the base tables created by initialize_database.
+    # Migrations start at index 0 → schema_version 2, index 1 → 3, etc.
+    for i in range(current, len(MIGRATIONS)):
+        MIGRATIONS[i](conn)
+    if len(MIGRATIONS) > current:
+        _set_schema_version(conn, len(MIGRATIONS))
+        conn.commit()
+
+
 def initialize_database():
-    """Initializes the database and creates all required tables."""
+    """Initializes the database, creates base tables, and applies migrations."""
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    
+
     # Manual entries table for user-entered data
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS manual_entries (
@@ -21,7 +79,7 @@ def initialize_database():
             notes TEXT
         )
     """)
-    
+
     # App settings table for storing configuration
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS app_settings (
@@ -29,7 +87,7 @@ def initialize_database():
             value TEXT NOT NULL
         )
     """)
-    
+
     # Doctor leaves table for managing staff leave schedules
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS doctor_leaves (
@@ -41,7 +99,7 @@ def initialize_database():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
+
     # Coordinates table for storing UI element positions
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS coordinates (
@@ -51,7 +109,7 @@ def initialize_database():
             description TEXT
         )
     """)
-    
+
     # Staff table for managing staff members
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS staff (
@@ -64,12 +122,16 @@ def initialize_database():
     """)
 
     conn.commit()
+
+    # Apply pending migrations (safe - skips already applied ones)
+    _run_migrations(conn)
+
     conn.close()
-    
+
     # Initialize default coordinates if table is empty
     initialize_default_coordinates()
-    
-    # Initialize default staff if table is empty  
+
+    # Initialize default staff if table is empty
     initialize_default_staff()
 
 
