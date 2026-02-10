@@ -94,10 +94,13 @@ def apply_update_windows(new_exe_path, current_exe_path):
 
     This function does NOT return - it calls sys.exit(0).
     """
-    bat_path = os.path.join(os.path.dirname(current_exe_path), "_update.bat")
+    exe_dir = os.path.dirname(current_exe_path)
+    exe_name = os.path.basename(current_exe_path)
+    bat_path = os.path.join(exe_dir, "_update.bat")
 
     bat_content = f'''@echo off
 setlocal
+set "EXE_DIR={exe_dir}"
 set "OLD_EXE={current_exe_path}"
 set "NEW_EXE={new_exe_path}"
 set RETRIES=0
@@ -121,17 +124,18 @@ if errorlevel 1 (
     goto :eof
 )
 
+cd /d "%EXE_DIR%"
 timeout /t 3 /nobreak >nul
-start "" "%OLD_EXE%"
+explorer.exe "{exe_name}"
+timeout /t 2 /nobreak >nul
 del "%~f0"
 '''
 
     with open(bat_path, "w") as f:
         f.write(bat_content)
 
-    # CREATE_NO_WINDOW = 0x08000000
     subprocess.Popen(
-        [bat_path],
+        ["cmd.exe", "/c", bat_path],
         creationflags=0x08000000,
         close_fds=True,
     )
