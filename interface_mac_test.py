@@ -99,7 +99,7 @@ class AutomationGUI:
         validate_btn = ttk.Button(file_frame, text="🛡️ Kiểm Tra Dữ Liệu", command=self.validate_data)
         validate_btn.grid(row=0, column=6)
 
-        update_btn = ttk.Button(file_frame, text="Cap Nhat", command=self.check_for_updates)
+        update_btn = ttk.Button(file_frame, text="Cập Nhật", command=self.check_for_updates)
         update_btn.grid(row=0, column=7, padx=(5, 0))
 
         # Data display table
@@ -674,11 +674,13 @@ class AutomationGUI:
     # ===== Auto-Update Methods =====
 
     def _startup_update_check(self):
-        """Background check for updates on app startup."""
+        """Background check for updates on app startup. Only logs, no popup."""
         try:
             update_info = check_for_update(get_current_version(), GITHUB_REPO)
             if update_info:
-                self.root.after(0, lambda: self._show_update_dialog(update_info))
+                self.root.after(0, lambda: self.log_message(
+                    f"Phiên bản mới v{update_info['version']} đã có! Nhấn nút 'Cập Nhật' để cập nhật."
+                ))
         except Exception:
             pass
 
@@ -695,8 +697,8 @@ class AutomationGUI:
                 self.root.after(0, lambda: self._show_update_dialog(update_info))
             else:
                 self.root.after(0, lambda: [
-                    self.log_message("You're up to date!"),
-                    messagebox.showinfo("Cap Nhat", f"Ban dang dung phien ban moi nhat v{get_current_version()}!")
+                    self.log_message("Bạn đang dùng phiên bản mới nhất!"),
+                    messagebox.showinfo("Cập Nhật", f"Bạn đang dùng phiên bản mới nhất v{get_current_version()}!")
                 ])
         except Exception as e:
             self.root.after(0, lambda: self.log_message(f"Could not check for updates: {e}"))
@@ -708,10 +710,10 @@ class AutomationGUI:
             changelog = changelog[:500] + "..."
 
         result = messagebox.askyesno(
-            "Phien Ban Moi",
-            f"Phien ban v{update_info['version']} da co!\n\n"
+            "Phiên Bản Mới",
+            f"Phiên bản v{update_info['version']} đã có!\n\n"
             f"{changelog}\n\n"
-            f"Cap nhat ngay?"
+            f"Cập nhật ngay?"
         )
         if result:
             messagebox.showinfo(

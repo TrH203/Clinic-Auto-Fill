@@ -135,4 +135,6 @@ del "%~f0"
         close_fds=True,
     )
 
-    sys.exit(0)
+    # os._exit() kills the entire process immediately (unlike sys.exit which
+    # only raises SystemExit and won't terminate from a daemon thread)
+    os._exit(0)
