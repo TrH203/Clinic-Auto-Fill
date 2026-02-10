@@ -83,6 +83,8 @@ def load_coordinates_from_db():
             'CHO_THUC_HIEN': (126, 133),
             'DA_THUC_HIEN': (250, 133),
             'RELOAD': (390, 141),
+            'KTV': (1820, 367),
+            'KTV_NGUOI_DAU_TIEN': (1624, 464),
         }
 
 # Load coordinates
@@ -106,12 +108,15 @@ NGAY_BAT_DAU = _coords.get('NGAY_BAT_DAU', (153, 151))
 CHO_THUC_HIEN = _coords.get('CHO_THUC_HIEN', (126, 133))
 DA_THUC_HIEN = _coords.get('DA_THUC_HIEN', (250, 133))
 RELOAD = _coords.get('RELOAD', (390, 141))
+KTV = _coords.get('KTV', (0, 0))
+KTV_NGUOI_DAU_TIEN = _coords.get('KTV_NGUOI_DAU_TIEN', (0, 0))
 
 def reload_coordinates():
     """Reload coordinates from database. Call this after coordinates are updated."""
     global ID_BOX, LUU, TIEP, SUA, PATIENT_ROW, BSCD_NGUOI_DAU_TIEN, CCHN_NGUOI_DAU_TIEN
     global CCHN, NGAY_KQ, NGAY_BDTH, NGAY_CD, BSCD, NGAY_KET_THUC, NGAY_BAT_DAU
     global CHO_THUC_HIEN, DA_THUC_HIEN, RELOAD, _coords
+    global KTV, KTV_NGUOI_DAU_TIEN
     
     _coords = load_coordinates_from_db()
     
@@ -122,11 +127,13 @@ def reload_coordinates():
     PATIENT_ROW = _coords.get('PATIENT_ROW', (181, 249))
     BSCD_NGUOI_DAU_TIEN = _coords.get('BSCD_NGUOI_DAU_TIEN', (1595, 348))
     CCHN_NGUOI_DAU_TIEN = _coords.get('CCHN_NGUOI_DAU_TIEN', (1624, 444))
+    KTV_NGUOI_DAU_TIEN = _coords.get('KTV_NGUOI_DAU_TIEN', (1624, 464))
     CCHN = _coords.get('CCHN', (1820, 344))
     NGAY_KQ = _coords.get('NGAY_KQ', (1820, 322))
     NGAY_BDTH = _coords.get('NGAY_BDTH', (1820, 299))
     NGAY_CD = _coords.get('NGAY_CD', (1820, 278))
     BSCD = _coords.get('BSCD', (1820, 256))
+    KTV = _coords.get('KTV', (1820, 367))
     NGAY_KET_THUC = _coords.get('NGAY_KET_THUC', (275, 151))
     NGAY_BAT_DAU = _coords.get('NGAY_BAT_DAU', (153, 151))
     CHO_THUC_HIEN = _coords.get('CHO_THUC_HIEN', (126, 133))

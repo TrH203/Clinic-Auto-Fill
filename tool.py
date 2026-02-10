@@ -192,4 +192,9 @@ class Tool:
             self._type_text_no_telex(info["Nguoi Thuc Hien"])
             self._click_position(coords=config.CCHN_NGUOI_DAU_TIEN) # Click nguoi dau tien trong danh sach
 
+            # Click KTV
+            self._click_position(coords=config.KTV, wait=0.1)
+            self._type_text_no_telex(info["Nguoi Thuc Hien"])
+            self._click_position(coords=config.KTV_NGUOI_DAU_TIEN) # Click nguoi dau tien trong danh sach
+
             self._click_position(coords=config.LUU) # Luu

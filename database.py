@@ -557,29 +557,30 @@ def get_default_coordinates():
         'CHO_THUC_HIEN': (126, 133, 'Pending execution tab'),
         'DA_THUC_HIEN': (250, 133, 'Completed execution tab'),
         'RELOAD': (390, 141, 'Reload button'),
+        'KTV': (1820, 367, 'Technician field'),
+        'KTV_NGUOI_DAU_TIEN': (1624, 464, 'First technician in dropdown'),
     }
 
 
 def initialize_default_coordinates():
-    """Initialize coordinates table with default values if empty."""
+    """Initialize coordinates table with default values if empty or missing."""
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
     
-    # Check if table has any data
-    cursor.execute("SELECT COUNT(*) FROM coordinates")
-    count = cursor.fetchone()[0]
+    # Get existing coordinate names
+    cursor.execute("SELECT name FROM coordinates")
+    existing_names = {row[0] for row in cursor.fetchall()}
     
-    if count == 0:
-        # Insert default coordinates
-        default_coords = get_default_coordinates()
-        for name, (x, y, description) in default_coords.items():
+    default_coords = get_default_coordinates()
+    
+    for name, (x, y, description) in default_coords.items():
+        if name not in existing_names:
             cursor.execute("""
                 INSERT INTO coordinates (name, x, y, description)
                 VALUES (?, ?, ?, ?)
             """, (name, x, y, description))
-        
-        conn.commit()
     
+    conn.commit()
     conn.close()
 
 
