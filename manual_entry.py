@@ -694,6 +694,23 @@ class ManualEntryDialog:
                 date_str,
                 time_str
             )
+
+            # Preserve or set isFirst for manual entries.
+            # Editing: keep the previous isFirst unless patient ID changes.
+            # New entry: only the first entry per patient should be True.
+            new_patient_id = data.get("id", "")
+            if self.initial_data:
+                initial_id = self.initial_data.get("id", "")
+                if initial_id == new_patient_id:
+                    data["isFirst"] = self.initial_data.get("isFirst", data.get("isFirst", True))
+                else:
+                    data["isFirst"] = not any(
+                        record.get("id") == new_patient_id for record in self.existing_data
+                    )
+            else:
+                data["isFirst"] = not any(
+                    record.get("id") == new_patient_id for record in self.existing_data
+                )
             
             # Validate against existing data for time conflicts
             candidate_data = []
@@ -743,6 +760,20 @@ class ManualEntryDialog:
             # Call callback if provided
             if self.on_save_callback:
                 self.on_save_callback(data)
+
+            # Keep dialog-local existing_data in sync for continuous entry.
+            # This avoids treating subsequent entries as "first" in the same session.
+            try:
+                if self.initial_data:
+                    initial_id = self.initial_data.get('id', '')
+                    initial_date = self.initial_data.get('ngay', '')
+                    self.existing_data[:] = [
+                        d for d in self.existing_data
+                        if not (d.get('id') == initial_id and d.get('ngay') == initial_date)
+                    ]
+                self.existing_data.append(data)
+            except Exception:
+                pass
             
             # Remember this date for next entry
             ManualEntryDialog.last_used_date = date_str
