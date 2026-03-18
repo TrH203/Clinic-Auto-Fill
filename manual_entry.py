@@ -247,7 +247,11 @@ class ManualEntryDialog:
             combo = ttk.Combobox(staff_frame, textvariable=var, 
                                 values=current_display_list, width=35)
             combo.grid(row=i+1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(10, 0))
-            
+
+            # Set default to last value for index 1 combobox
+            if i == 1 and current_display_list:
+                var.set(current_display_list[-1])
+
             # Add autocomplete behavior
             def make_autocomplete(combo_widget, var_widget, values_list):
                 def on_keyrelease(event):

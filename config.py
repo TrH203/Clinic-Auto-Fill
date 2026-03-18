@@ -32,7 +32,7 @@ thu_thuat_ability_mapper = {
     # "thuỷ": 'bs',
     "thủy": "bs",
     "xoa": "ys",
-    "kéo": "bs",
+    "kéo": "ys",
     "giác": "ys",
     "cứu": "ys",
 }
