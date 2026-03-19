@@ -795,6 +795,9 @@ class ManualEntryDialog:
             # Clear Staff
             for var in self.staff_vars:
                 var.set("")
+            # Restore default for index 1 (Person 2)
+            if self.staff_display_g2:
+                self.staff_vars[1].set(self.staff_display_g2[-1])
             # Reset staff options
             self.update_staff_options()
             
