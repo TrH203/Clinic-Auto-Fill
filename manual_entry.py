@@ -170,8 +170,8 @@ class ManualEntryDialog:
             row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=15)
         row += 1
         
-        # Procedures Section - EXACTLY 4 dropdowns
-        procedures_frame = ttk.LabelFrame(main_frame, text="Procedures (Chọn đúng 4 thủ thuật theo thứ tự)", 
+        # Procedures Section - 1 to 4 dropdowns
+        procedures_frame = ttk.LabelFrame(main_frame, text="Procedures (Chọn 1-4 thủ thuật theo thứ tự)",
                                          padding="10")
         procedures_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
         row += 1
@@ -184,24 +184,28 @@ class ManualEntryDialog:
         if not self.initial_data:
             last_procedures = get_last_used_procedures()
         
-        # Create 4 procedure dropdowns
+        # Create 4 procedure dropdowns with clear buttons
         self.procedure_vars = []
         self.procedure_combos = []  # Track combobox widgets
         for i in range(4):
             ttk.Label(procedures_frame, text=f"Thủ thuật {i+1}:").grid(
                 row=i, column=0, sticky=tk.W, pady=5, padx=(0, 10))
             var = tk.StringVar()
-            dropdown = ttk.Combobox(procedures_frame, textvariable=var, 
-                                   values=self.available_procedures, width=35, state='readonly')
+            dropdown = ttk.Combobox(procedures_frame, textvariable=var,
+                                   values=self.available_procedures, width=32, state='readonly')
             dropdown.grid(row=i, column=1, sticky=(tk.W, tk.E), pady=5)
             # Auto-focus next on selection
             dropdown.bind('<<ComboboxSelected>>', lambda e, idx=i: self.on_procedure_selected(e, idx))
-            # Manual open with Down arrow key only (no auto-open)
-            
+
+            # Clear button to remove selection
+            clear_btn = ttk.Button(procedures_frame, text="✕", width=3,
+                                   command=lambda idx=i: self._clear_procedure(idx))
+            clear_btn.grid(row=i, column=2, padx=(5, 0), pady=5)
+
             # Set default value from last used procedures if available
             if not self.initial_data and i < len(last_procedures) and last_procedures[i]:
                 var.set(last_procedures[i])
-            
+
             self.procedure_vars.append(var)
             self.procedure_combos.append(dropdown)
             self.all_comboboxes.append(dropdown)
@@ -231,10 +235,13 @@ class ManualEntryDialog:
         # Create 3 staff comboboxes with autocomplete
         self.staff_vars = []
         self.staff_combos = []  # Track combobox widgets
+        self.staff_labels = []  # Track labels for dynamic update
         for i in range(3):
-            ttk.Label(staff_frame, text=f"Người {i+1}:").grid(row=i+1, column=0, sticky=tk.W, pady=5)
+            label = ttk.Label(staff_frame, text=f"Người {i+1}:")
+            label.grid(row=i+1, column=0, sticky=tk.W, pady=5)
+            self.staff_labels.append(label)
             var = tk.StringVar()
-            
+
             # Select appropriate list based on position
             # People 1 and 3 (index 0 and 2) -> Group 1
             # Person 2 (index 1) -> Group 2
@@ -341,14 +348,17 @@ class ManualEntryDialog:
         cancel_btn.grid(row=0, column=2, padx=5)
         
         # Info Label
-        info_label = ttk.Label(main_frame, 
-                              text="💡 Chọn đủ 4 thủ thuật và ít nhất 1 người thực hiện",
+        info_label = ttk.Label(main_frame,
+                              text="💡 Chọn 1-4 thủ thuật. Nhân viên tự điều chỉnh theo thủ thuật đã chọn.",
                               font=('Arial', 9), foreground="gray")
         info_label.grid(row=row+1, column=0, columnspan=2, pady=(0, 10))
         
         # Pre-fill data if editing (must be after all widgets are created)
         if self.initial_data:
             self.prefill_data()
+
+        # Set initial BS visibility based on selected/default procedures
+        self._update_staff_bs_visibility()
     
     def on_date_key_release(self, event):
         """Handle smart date formatting."""
@@ -496,10 +506,64 @@ class ManualEntryDialog:
             # Update staff options after setting values
             self.update_staff_options()
     
+    def _clear_procedure(self, index):
+        """Clear the procedure at the given index."""
+        self.procedure_combos[index].set('')
+        self.update_procedure_options()
+        self._update_staff_bs_visibility()
+
+    def _get_needed_staff(self):
+        """Determine which staff positions are needed based on selected procedures.
+        Returns (needs_p1, needs_p2, needs_p3)."""
+        procs = [var.get() for var in self.procedure_vars if var.get()]
+        needs_p2 = False
+        ys_count = 0
+        for proc in procs:
+            if thu_thuat_ability_mapper.get(proc, 'ys') == 'bs':
+                needs_p2 = True
+            else:
+                ys_count += 1
+        needs_p1 = ys_count >= 1
+        needs_p3 = ys_count >= 2
+        return needs_p1, needs_p2, needs_p3
+
+    def _needs_bs_staff(self):
+        """Check if any selected procedure requires a doctor (bs type)."""
+        _, needs_p2, _ = self._get_needed_staff()
+        return needs_p2
+
+    def _update_staff_bs_visibility(self):
+        """Enable/disable staff dropdowns based on selected procedures."""
+        needs_p1, needs_p2, needs_p3 = self._get_needed_staff()
+
+        # Person 2 (doctor)
+        if needs_p2:
+            self.staff_combos[1].config(state='normal')
+            self.staff_labels[1].config(foreground='')
+            if not self.staff_vars[1].get() and self.staff_display_g2:
+                self.staff_vars[1].set(self.staff_display_g2[-1])
+        else:
+            # Keep default value visible but disabled
+            if not self.staff_vars[1].get() and self.staff_display_g2:
+                self.staff_vars[1].set(self.staff_display_g2[-1])
+            self.staff_combos[1].config(state='disabled')
+            self.staff_labels[1].config(foreground='gray')
+
+        # Person 3 (only needed when 2+ ys procedures)
+        if needs_p3:
+            self.staff_combos[2].config(state='normal')
+            self.staff_labels[2].config(foreground='')
+        else:
+            self.staff_vars[2].set('')
+            self.staff_combos[2].config(state='disabled')
+            self.staff_labels[2].config(foreground='gray')
+
     def on_procedure_selected(self, event, combo_index):
         """Handle procedure selection and update other comboboxes."""
         # Update available options in all other procedure comboboxes
         self.update_procedure_options()
+        # Toggle Person 2 based on BS need
+        self._update_staff_bs_visibility()
         # Then move focus
         self.focus_next_widget(event)
     
@@ -641,17 +705,32 @@ class ManualEntryDialog:
             messagebox.showerror("Định Dạng Sai", "Định dạng giờ không hợp lệ.")
             return False
         
-        # Check procedures - MUST BE EXACTLY 4
+        # Check procedures - at least 1, up to 4
         selected_procedures = [var.get() for var in self.procedure_vars if var.get()]
-        if len(selected_procedures) != 4:
-            messagebox.showerror("Định Dạng Sai", 
-                               f"Vui lòng chọn CHÍNH XÁC 4 thủ thuật.\nĐã chọn: {len(selected_procedures)}")
+        if len(selected_procedures) < 1:
+            messagebox.showerror("Định Dạng Sai", "Vui lòng chọn ít nhất 1 thủ thuật.")
             return False
         
-        # Check staff
-        selected_staff = [var.get().lower() for var in self.staff_vars if var.get()]
-        if not selected_staff:
-            messagebox.showerror("Định Dạng Sai", "Vui lòng chọn ít nhất một nhân viên.")
+        # Check staff based on procedure requirements
+        needs_p1, needs_p2, needs_p3 = self._get_needed_staff()
+        selected_staff = []
+        for i, var in enumerate(self.staff_vars):
+            if not var.get():
+                continue
+            if i == 1 and not needs_p2:
+                continue
+            if i == 2 and not needs_p3:
+                continue
+            selected_staff.append(var.get().lower())
+
+        if needs_p1 and not self.staff_vars[0].get():
+            messagebox.showerror("Định Dạng Sai", "Vui lòng chọn Người 1 (KTV).")
+            return False
+        if needs_p2 and not self.staff_vars[1].get():
+            messagebox.showerror("Định Dạng Sai", "Vui lòng chọn Người 2 (Bác sĩ) vì có thủ thuật yêu cầu BS.")
+            return False
+        if needs_p3 and not self.staff_vars[2].get():
+            messagebox.showerror("Định Dạng Sai", "Vui lòng chọn Người 3 (KTV) vì có 2+ thủ thuật YS.")
             return False
         
         # Validate staff names exist in config
@@ -684,11 +763,21 @@ class ManualEntryDialog:
             # Get time
             time_str = f"{self.hour_var.get()}:{self.minute_var.get()}"
             
-            # Get selected procedures - EXACTLY 4
-            procedures = [var.get() for var in self.procedure_vars]
+            # Get selected procedures (only non-empty)
+            procedures = [var.get() for var in self.procedure_vars if var.get()]
             
             # Get selected staff (normalize to lowercase)
-            staff = [var.get().lower() for var in self.staff_vars if var.get()]
+            # Only include staff positions that are needed
+            needs_p1, needs_p2, needs_p3 = self._get_needed_staff()
+            staff = []
+            for i, var in enumerate(self.staff_vars):
+                if not var.get():
+                    continue
+                if i == 1 and not needs_p2:
+                    continue
+                if i == 2 and not needs_p3:
+                    continue
+                staff.append(var.get().lower())
             
             # Create automation data
             data = create_data_from_manual_input(

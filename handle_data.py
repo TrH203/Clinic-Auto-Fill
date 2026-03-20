@@ -145,14 +145,18 @@ def read_data(source='data.csv') -> list:
     # Chuyển thành output list
     # -----------------------------
     list_data = []
+    seen_patient_ids = set()
 
     for row in all_data:
-        isFirst = True
+        patient_id = row[0][0]
+        # Only first block for each patient gets isFirst=True
+        isFirst = patient_id not in seen_patient_ids
+        seen_patient_ids.add(patient_id)
 
         for i in range(1, len(row)):
 
             final_data = {
-                "id": row[0][0],
+                "id": patient_id,
                 "isFirst": isFirst
             }
             if isFirst:
@@ -174,6 +178,9 @@ def read_data(source='data.csv') -> list:
             for tt in thu_thuats:
                  if tt not in thu_thuat_dur_mapper:
                      raise ValueError(f"Lỗi ID {final_data['id']}: Tên thủ thuật '{tt}' sai hoặc thiếu dấu gạch ngang (-).")
+
+            # Check if any procedure requires a doctor (bs type)
+            has_bs_proc = any(thu_thuat_ability_mapper.get(t, 'ys') == 'bs' for t in thu_thuats)
 
             final_data["thu_thuats"] = []
 
@@ -221,12 +228,21 @@ def read_data(source='data.csv') -> list:
                 if thu_thuat_ability_mapper[tt] == "bs":
                     idx_ng = 1 if len(nguoi) > 1 else 0
                 else:
-                    idx_ng = 2 if flag else 0
+                    if has_bs_proc:
+                        # 3 staff: P1(0), P2(1), P3(2) - alternate between 0 and 2
+                        idx_ng = 2 if flag else 0
+                    else:
+                        if len(nguoi) >= 3:
+                            # Backward compat: old CSV format had 3 staff (P1, P2-duplicate, P3)
+                            idx_ng = 2 if flag else 0
+                        else:
+                            # New format: 2 staff only (P1, P3)
+                            idx_ng = 1 if flag else 0
                     flag = not flag
-                
-                # Strict validation based on position
+
+                # Validate based on procedure ability type
                 staff_key = nguoi[idx_ng].lower()
-                if idx_ng == 1:
+                if thu_thuat_ability_mapper[tt] == "bs":
                     if staff_key not in staff_p2:
                         raise ValueError(f"Lỗi ID {final_data['id']}: Nhân viên '{map_ys_bs[staff_key]}' (vị trí 2) không có trong danh sách Group 2.")
                 else:
@@ -299,38 +315,46 @@ def create_data_from_manual_input(patient_id, procedures_list, staff_list, appoi
     
     thu_thuats = []
     flag = False
-    
+
+    # Check if any procedure requires a doctor (bs type)
+    has_bs_proc = any(thu_thuat_ability_mapper.get(t, 'ys') == 'bs' for t in procedures_list)
+
     # Calculate times for first procedure
     gio_dau = datetime.combine(ngay_dt.date(), gio_start.time())
     lui = 5
     gio_CD = gio_dau - timedelta(minutes=lui)
-    
+
     # Fix times that are too early
     sang_start = datetime.strptime("07:00", "%H:%M").time()
     sang_early = datetime.strptime("06:00", "%H:%M").time()
     chieu_start = datetime.strptime("13:30", "%H:%M").time()
     chieu_early = datetime.strptime("12:00", "%H:%M").time()
-    
+
     if sang_early < gio_CD.time() < sang_start:
         gio_CD = datetime.combine(gio_CD.date(), sang_start)
     elif chieu_early < gio_CD.time() < chieu_start:
         gio_CD = datetime.combine(gio_CD.date(), chieu_start)
-    
+
     thu = ngay_dt.weekday()
-    
+
     for idx, tt in enumerate(procedures_list):
         obj = {"Ten": tt}
-        
+
         if idx > 0:
             gio_dau = gio_cuoi + timedelta(minutes=2)
-        
+
         gio_cuoi = gio_dau + timedelta(minutes=thu_thuat_dur_mapper[tt])
-        
+
         # Determine staff
         if thu_thuat_ability_mapper[tt] == "bs":
             idx_ng = 1 if len(staff_list) > 1 else 0
         else:
-            idx_ng = 2 if flag else 0
+            if has_bs_proc:
+                # 3 staff: P1(0), P2(1), P3(2)
+                idx_ng = 2 if flag else 0
+            else:
+                # 2 staff: P1(0), P3(1)
+                idx_ng = 1 if flag else 0
             flag = not flag
         
         # Select bs_mapper based on appointment year
@@ -402,109 +426,108 @@ def merge_csv_and_manual_data(csv_data, manual_data):
 def export_data_to_csv(data_list, filename):
     """
     Export data to CSV file in the same format as the import format.
-    
+
     Format:
     PatientID;procedure1-procedure2-procedure3-procedure4;
-    HH:MM;staff1-staff2-staff3;DD-MM-YY
-    HH:MM;staff1-staff2-staff3;DD-MM-YY
+    HH:MM;staff1-staff2-staff3;DD-MM-YY  (3 staff if has BS procedure)
+    HH:MM;staff1-staff2;DD-MM-YY         (2 staff if no BS procedure)
     ...
-    
+
     Args:
         data_list: List of data records from read_data()
         filename: Output CSV filename
     """
     import csv
     from collections import defaultdict
-    
-    # Group records by patient ID
+
+    # Group records by (patient_id, procedure_set) to handle different procedures per day
     grouped_data = defaultdict(list)
     for record in data_list:
         patient_id = record.get('id', '')
-        grouped_data[patient_id].append(record)
-    
+        procs = tuple(tt.get('Ten', '') for tt in record.get('thu_thuats', []))
+        grouped_data[(patient_id, procs)].append(record)
+
     with open(filename, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f, delimiter=';')
-        
-        for patient_id, records in grouped_data.items():
-            # Get procedures from first record (they should be the same for all records of this patient)
-            if records and records[0].get('thu_thuats'):
-                procedures = [tt.get('Ten', '') for tt in records[0]['thu_thuats']]
-                procedures_str = '-'.join(procedures)
-                
-                # Write patient ID and procedures line
-                writer.writerow([patient_id, procedures_str, ''])
-                
-                # Write each appointment (time, staff, date)
-                for record in records:
-                    ngay = record.get('ngay', '')
-                    # Convert DD-MM-YYYY to DD-MM-YY
-                    if ngay:
-                        parts = ngay.split('-')
-                        if len(parts) == 3:
-                            ngay_short = f"{parts[0]}-{parts[1]}-{parts[2][-2:]}"
-                        else:
-                            ngay_short = ngay
+
+        for (patient_id, procs), records in grouped_data.items():
+            if not records or not procs:
+                continue
+
+            procedures_str = '-'.join(procs)
+
+            # Check if any procedure requires a doctor (bs type)
+            has_bs = any(thu_thuat_ability_mapper.get(p, 'ys') == 'bs' for p in procs)
+
+            # Write patient ID and procedures line
+            writer.writerow([patient_id, procedures_str, ''])
+
+            # Write each appointment (time, staff, date)
+            for record in records:
+                ngay = record.get('ngay', '')
+                # Convert DD-MM-YYYY to DD-MM-YY
+                if ngay:
+                    parts = ngay.split('-')
+                    if len(parts) == 3:
+                        ngay_short = f"{parts[0]}-{parts[1]}-{parts[2][-2:]}"
                     else:
-                        ngay_short = ''
-                    
-                    # Extract time from first thu_thuat
-                    if record.get('thu_thuats') and len(record['thu_thuats']) > 0:
-                        first_tt = record['thu_thuats'][0]
-                        ngay_bd_th = first_tt.get('Ngay BD TH', '')
-                        # Extract time from "DD-MM-YYYY{SPACE}HH:MM" format
-                        if '{SPACE}' in ngay_bd_th:
-                            time_part = ngay_bd_th.split('{SPACE}')[1] if len(ngay_bd_th.split('{SPACE}')) > 1 else ''
+                        ngay_short = ngay
+                else:
+                    ngay_short = ''
+
+                # Extract time from first thu_thuat
+                if record.get('thu_thuats') and len(record['thu_thuats']) > 0:
+                    first_tt = record['thu_thuats'][0]
+                    ngay_bd_th = first_tt.get('Ngay BD TH', '')
+                    # Extract time from "DD-MM-YYYY{SPACE}HH:MM" format
+                    if '{SPACE}' in ngay_bd_th:
+                        time_part = ngay_bd_th.split('{SPACE}')[1] if len(ngay_bd_th.split('{SPACE}')) > 1 else ''
+                    else:
+                        time_part = ''
+
+                    # Reconstruct staff roles
+                    p1, p2, p3 = None, None, None
+                    ys_count = 0
+
+                    for tt in record['thu_thuats']:
+                        staff_name = tt.get('Nguoi Thuc Hien', '')
+                        proc_name = tt.get('Ten', '')
+                        if not staff_name: continue
+
+                        # Full to short
+                        staff_short = None
+                        for short, full in map_ys_bs.items():
+                            if full == staff_name:
+                                staff_short = short
+                                break
+                        if not staff_short: continue
+
+                        ability = thu_thuat_ability_mapper.get(proc_name, 'ys')
+
+                        if ability == 'bs':
+                            if not p2: p2 = staff_short
                         else:
-                            time_part = ''
-                        
-                        # Reconstruct staff roles to ensure correct order: P1 - P2 - P3
-                        # CRITICAL: Always preserve all 3 positions to maintain data integrity during export/import
-                        p1, p2, p3 = None, None, None
-                        ys_count = 0
-                        
-                        for tt in record['thu_thuats']:
-                            staff_name = tt.get('Nguoi Thuc Hien', '')
-                            proc_name = tt.get('Ten', '')
-                            if not staff_name: continue
-                            
-                            # Full to short
-                            staff_short = None
-                            for short, full in map_ys_bs.items():
-                                if full == staff_name:
-                                    staff_short = short
-                                    break
-                            if not staff_short: continue
-                            
-                            ability = thu_thuat_ability_mapper.get(proc_name, 'ys')
-                            
-                            if ability == 'bs':
-                                if not p2: p2 = staff_short
+                            if ys_count % 2 == 0:
+                                if not p1: p1 = staff_short
                             else:
-                                if ys_count % 2 == 0:
-                                    if not p1: p1 = staff_short
-                                else:
-                                    if not p3: p3 = staff_short
-                                ys_count += 1
-                        
-                        # Join in order: Person 1, Person 2 (BS), Person 3
-                        # CRITICAL FIX: Do NOT filter out None/empty positions
-                        # This preserves all positions even if some procedures don't need certain staff
-                        # Use the first staff member for all empty positions to maintain data structure
-                        # This ensures export -> import round-trip consistency
-                        if p1 or p2 or p3:
-                            # Find the first non-None staff to use as default
-                            default_staff = p1 or p2 or p3
-                            staff_ordered = [
-                                p1 if p1 else default_staff,
-                                p2 if p2 else default_staff,
-                                p3 if p3 else default_staff
-                            ]
-                            staff_str = '-'.join(staff_ordered)
-                        else:
-                            staff_str = ''
-                        
-                        # Write appointment row
-                        writer.writerow([time_part, staff_str, ngay_short])
+                                if not p3: p3 = staff_short
+                            ys_count += 1
+
+                    # Build staff string - only include positions actually used
+                    staff_parts = []
+                    if has_bs:
+                        # Order: P1 (if ys procs exist), P2, P3 (if 2+ ys procs)
+                        if p1: staff_parts.append(p1)
+                        if p2: staff_parts.append(p2)
+                        if p3: staff_parts.append(p3)
+                    else:
+                        # No doctor: P1, P3 (if 2+ ys procs)
+                        if p1: staff_parts.append(p1)
+                        if p3: staff_parts.append(p3)
+                    staff_str = '-'.join(staff_parts) if staff_parts else ''
+
+                    # Write appointment row
+                    writer.writerow([time_part, staff_str, ngay_short])
 
 
 # -----------------------------
@@ -595,8 +618,8 @@ def validate_all_data(all_data):
     return errors
 if __name__ == "__main__":
 
-    in1 = read_data("/Users/trHien/Downloads/new_test.csv")
+    in1 = read_data(r"C:\Users\ADMIN\Downloads\tesst.csv")
 
     import json
-    json.dump(in1, open("data.json", "w"), ensure_ascii=False)
+    json.dump(in1, open("data.json", "w", encoding="utf-8"), ensure_ascii=False)
 

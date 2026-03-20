@@ -19,13 +19,14 @@ bs_mapper_new = {
 }
 
 thu_thuat_dur_mapper = {
-    "điện": 30,
+    "điện": 25,
     # "thuỷ": 30,
-    "thủy": 30,
-    "xoa": 30,
+    "thủy": 25,
+    "xoa": 20,
     "kéo": 20,
-    "giác": 20,
-    "cứu": 20,
+    "giác": 15,
+    "cứu": 15,
+    "ngâm": 15,
 }
 thu_thuat_ability_mapper = {
     "điện": "ys",
@@ -35,6 +36,7 @@ thu_thuat_ability_mapper = {
     "kéo": "ys",
     "giác": "ys",
     "cứu": "ys",
+    "ngâm": "ys",
 }
 
 # Auto-scheduling time slots.
