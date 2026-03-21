@@ -238,12 +238,25 @@ if not map_ys_bs:
     map_ys_bs = {**staff_p1_p3, **staff_p2}
 
 def reload_staff():
-    """Reload staff from database. Call this after staff changes."""
+    """Reload staff from database. Call this after staff changes.
+
+    Uses in-place mutation (.clear()/.update()) so that modules which imported
+    staff_p1_p3, staff_p2, or map_ys_bs via 'from config import ...' still
+    reference the same dict objects and see the updated data.
+    """
     global staff_p1_p3, staff_p2, map_ys_bs
-    
-    staff_p1_p3, staff_p2 = load_staff_from_database()
-    map_ys_bs = {**staff_p1_p3, **staff_p2}
-    
+
+    new_p1_p3, new_p2 = load_staff_from_database()
+
+    staff_p1_p3.clear()
+    staff_p1_p3.update(new_p1_p3)
+
+    staff_p2.clear()
+    staff_p2.update(new_p2)
+
+    map_ys_bs.clear()
+    map_ys_bs.update({**staff_p1_p3, **staff_p2})
+
     return staff_p1_p3, staff_p2, map_ys_bs
 
 # # List of disabled/excluded staff members (lowercase short names as keys in map_ys_bs)
